@@ -7,7 +7,12 @@
 <p align="center">
   <img src="src/GeZi/Resources/app-logo.png" width="120" alt="鸽子下载">
 </p>
-
+<p align="center">
+  <img src="https://img.shields.io/github/repo-size/huaotem-bot/gezi-quark-downloader?style=social&label=%E4%BB%93%E5%BA%93%E5%A4%A7%E5%B0%8F" alt="仓库大小">
+  <img src="https://visitor-badge.laobi.icu/badge?page_id=huaotem-bot.gezi-quark-downloader&left_text=%E4%BB%93%E5%BA%93%E6%B5%8F%E8%A7%88%E9%87%8F&left_color=%23555555&right_color=%232ECC71&radius=12" alt="仓库浏览量">
+  <img src="https://img.shields.io/github/license/huaotem-bot/gezi-quark-downloader?style=social&label=%E5%BC%80%E6%BA%90%E5%8D%8F%E8%AE%AE" alt="开源协议">
+  <img src="https://img.shields.io/github/stars/huaotem-bot/gezi-quark-downloader?style=social&label=%E4%BB%93%E5%BA%93%E6%98%9F%E6%98%9F" alt="仓库星星">
+</p>
 ---
 
 ## ✨ 功能特性
