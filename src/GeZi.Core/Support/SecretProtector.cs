@@ -28,7 +28,8 @@ namespace GeZi.Core.Support
     ///   换个用户或把配置文件拷到别的机器都无法读取（这正是我们要的）。
     /// - 密文以 "enc:v1:" 前缀标记，用于识别与平滑迁移：
     ///   读到没有前缀的字符串 → 视为旧版明文，直接返回原文，下次保存时自动加密。
-    /// - 加解密失败一律降级为“明文原样返回/返回原文”，绝不因加密问题让程序起不来。
+    /// - 加密失败必须抛出，避免调用方误把登录 Cookie 以明文写入磁盘。
+    /// - 解密失败返回空串，让调用方按“未登录”处理。
     /// </summary>
     public static class SecretProtector
     {
@@ -57,10 +58,9 @@ namespace GeZi.Core.Support
                 byte[] enc = ProtectedData.Protect(raw, Entropy, DataProtectionScope.CurrentUser);
                 return Prefix + Convert.ToBase64String(enc);
             }
-            catch
+            catch (Exception ex)
             {
-                // 加密不可用（极罕见：用户配置文件损坏等）→ 保持可用性优先
-                return plain;
+                throw new CryptographicException("无法使用 Windows DPAPI 加密敏感资料。", ex);
             }
         }
 

@@ -5170,7 +5170,7 @@ namespace GeZi
                 // ClientHello 的曲线组扩展大小做指纹过滤，SChannel 必然被 RST），
                 // 所以 ValidateAsync 每次都走兜底 → 昵称是"已登录用户"、头像永远为空
                 // —— 这正是用户反馈「都没有名字和头像」的根因。
-                // 借 Python 桥（OpenSSL 3.5.7 的 ClientHello 能过）补一次真实账号信息。
+                // 借已通过 TLS 自检的内嵌 Python/OpenSSL 补一次真实账号信息。
                 // 昵称/头像走**与手动刷新同一个方法**（这样两处的行为永远一致）
                 string realAvatar = null;
                 if (valid)
@@ -5251,7 +5251,7 @@ namespace GeZi
         ///
         /// 【为什么必须共用】`ValidateAsync` 里的昵称**永远**是兜底的"已登录用户" ——
         /// account/info 挂在 `pan.quark.cn`，.NET 的 SChannel 必然被 WAF RST（见上面长注释）。
-        /// 真名和头像只能借 Python 桥（OpenSSL 3.5.7 能过）。
+        /// 真名和头像只能借已通过 TLS 自检的内嵌 Python/OpenSSL 桥获取。
         ///
         /// ⚠️ **踩过的坑**：手动刷新那一版只调了 `ValidateAsync`、没走 Python 桥，
         /// 于是把好名字覆盖成了"已登录用户"（用户实测：「点了右上角刷新之后我的名字没了」）。

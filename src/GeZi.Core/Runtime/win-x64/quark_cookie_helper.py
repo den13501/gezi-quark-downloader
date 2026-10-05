@@ -16,7 +16,8 @@ quark_cookie_helper.py —— 用 service_ticket 换取夸克登录 Cookie。
 必须借一个"能被放行"的 TLS 栈来跑这一步 —— 本脚本就是干这个的。
 
 【用法】
-    python quark_cookie_helper.py <service_ticket>
+    echo <service_ticket> | python quark_cookie_helper.py --stdin-exchange
+    echo <cookie> | python quark_cookie_helper.py --stdin-accountinfo
     python quark_cookie_helper.py --selftest        # 自检：能否连上 pan.quark.cn
 
 【输出】
@@ -185,7 +186,7 @@ def account_info(cookie):
     指纹过滤，见文件头说明），所以登录后想拿**昵称/头像**只能借这个脚本跑一次。
     实测返回：`data.nickname`（昵称）、`data.avatarUri`（头像地址，http://image.quark.cn/…）。
 
-    用法:  python quark_cookie_helper.py --accountinfo "<cookie>"
+    用法:  通过标准输入传入 Cookie，命令行参数使用 --stdin-accountinfo
     输出:  {"ok": true, "nickname": "...", "avatar": "...", "keys": [...]}
     """
     import urllib.request
@@ -245,12 +246,20 @@ def main():
         return 3
     if args[0] == "--selftest":
         return selftest()
-    if args[0] == "--accountinfo":
-        if len(args) < 2:
-            _emit({"ok": False, "error": "--accountinfo 需要 cookie 参数"})
+    if args[0] == "--stdin-exchange":
+        ticket = sys.stdin.read().strip()
+        if not ticket:
+            _emit({"ok": False, "error": "标准输入缺少 service_ticket"})
             return 3
-        return account_info(args[1])
-    return exchange(args[0].strip())
+        return exchange(ticket)
+    if args[0] == "--stdin-accountinfo":
+        cookie = sys.stdin.read().strip()
+        if not cookie:
+            _emit({"ok": False, "error": "标准输入缺少 cookie"})
+            return 3
+        return account_info(cookie)
+    _emit({"ok": False, "error": "敏感参数必须通过标准输入传递"})
+    return 3
 
 
 if __name__ == "__main__":

@@ -200,12 +200,7 @@ namespace GeZi
             {
                 if (File.Exists(FilePath))
                 {
-                    using (var fs = File.OpenRead(FilePath))
-                    {
-                        var loaded = Ser.Deserialize(fs) as AppSettings;
-                        if (loaded != null)
-                            s = loaded;
-                    }
+                    s = LoadFileWithBackup(FilePath) ?? s;
                 }
                 else
                 {
@@ -213,12 +208,7 @@ namespace GeZi
                     string alt = Path.Combine(Util.GetLocalAppDataDir(), "GeZi.config.xml");
                     if (File.Exists(alt))
                     {
-                        using (var fs = File.OpenRead(alt))
-                        {
-                            var loaded = Ser.Deserialize(fs) as AppSettings;
-                            if (loaded != null)
-                                s = loaded;
-                        }
+                        s = LoadFileWithBackup(alt) ?? s;
                     }
                 }
             }
@@ -246,28 +236,34 @@ namespace GeZi
                 return;
 
             string rawCookie = s.Cookie;   // 内存中始终明文，落盘前临时加密
-            var tmpPath = FilePath + ".tmp";
             try
             {
                 s.Cookie = SecretProtector.Protect(rawCookie);
-
-                // 先写临时文件再原子替换：避免写一半断电/异常留下半截 XML，
-                // 下次启动 Load 直接抛异常、用户设置全丢。
-                using (var fs = File.Create(tmpPath))
-                    Ser.Serialize(fs, s);
-
-                if (File.Exists(FilePath))
-                    File.Delete(FilePath);
-                File.Move(tmpPath, FilePath);
+                AtomicFile.Write(FilePath, fs => Ser.Serialize(fs, s));
             }
             catch (Exception ex)
             {
                 LastError = ex.Message;
-                try { if (File.Exists(tmpPath)) File.Delete(tmpPath); } catch { }
             }
             finally
             {
                 s.Cookie = rawCookie;   // 还原内存明文，调用方拿到的对象不被污染
+            }
+        }
+
+        private static AppSettings LoadFileWithBackup(string path)
+        {
+            try
+            {
+                using (var fs = File.OpenRead(path))
+                    return Ser.Deserialize(fs) as AppSettings;
+            }
+            catch
+            {
+                string backup = path + ".bak";
+                if (!File.Exists(backup)) throw;
+                using (var fs = File.OpenRead(backup))
+                    return Ser.Deserialize(fs) as AppSettings;
             }
         }
     }

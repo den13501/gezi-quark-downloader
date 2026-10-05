@@ -35,7 +35,7 @@ namespace GeZi.Core.Api
     /// <list type="bullet">
     /// <item>.NET Framework 的 SChannel —— ClientHello 天然偏小，<b>任何协议版本都被 RST</b>；</item>
     /// <item>Python 3.14 自带的 OpenSSL <b>3.0.18</b> —— 同样被 RST；</item>
-    /// <item>Python 3.13 自带的 OpenSSL <b>3.5.7</b> —— 放行，正常握手并取回完整 Cookie。</item>
+    /// <item>随程序分发的 Python/OpenSSL 组合 —— 以 <c>--selftest</c> 实测可正常握手。</item>
     /// </list>
     /// <para>
     /// 而登录态 Cookie（<c>__pus</c> / <c>__puus</c>）<b>只能</b>由
@@ -47,7 +47,7 @@ namespace GeZi.Core.Api
     /// <para>【设计取舍】</para>
     /// <list type="bullet">
     /// <item>★ <b>程序自带一份精简 Python 运行时</b>（<c>Runtime\win-x64\</c>，约 20MB，
-    ///    CPython 3.13 + OpenSSL 3.5.7），候选列表里排第一 —— 这样**用户机器上没装 Python
+    ///    CPython 3.13 + 已通过 TLS 自检的 OpenSSL），候选列表里排第一 —— 这样**用户机器上没装 Python
     ///    也能扫码登录**，不必自己折腾环境。</item>
     /// <item>脚本以嵌入资源分发，运行时释放到 <c>%TEMP%\GeZi\</c>；内置运行时则直接用
     ///   其目录内的同名脚本，无需释放。</item>
@@ -114,7 +114,7 @@ namespace GeZi.Core.Api
 
             string helper = EnsureHelperScript();
             string stdout, stderr;
-            Run(py, helper, new[] { "--accountinfo", cookie }, 30, out stdout, out stderr);
+            Run(py, helper, new[] { "--stdin-accountinfo" }, 30, out stdout, out stderr, cookie);
 
             var result = ParseJson(stdout);
             if (result == null) return null;
@@ -207,7 +207,7 @@ namespace GeZi.Core.Api
 
             string helper = EnsureHelperScript();
             string stdout, stderr;
-            int exit = Run(py, helper, new[] { ticket }, 40, out stdout, out stderr);
+            int exit = Run(py, helper, new[] { "--stdin-exchange" }, 40, out stdout, out stderr, ticket);
 
             var result = ParseJson(stdout);
             if (result == null)
@@ -251,7 +251,7 @@ namespace GeZi.Core.Api
         /// 按优先级列出候选 Python：**先内置运行时**，再常见安装位置（新版优先），
         /// 再 PATH，最后 py launcher。
         ///
-        /// <para>内置运行时（随程序分发的 CPython 3.13 + OpenSSL 3.5.7）排在第一位，
+        /// <para>内置运行时（随程序分发的 CPython 3.13 + 已通过 TLS 自检的 OpenSSL）排在第一位，
         /// 保证在**任何机器**上都能扫码登录，不依赖用户是否装了 Python；
         /// 内置不可用时（例如文件被删）才回退到本机 Python。</para>
         /// </summary>
@@ -477,7 +477,7 @@ namespace GeZi.Core.Api
         /// 运行进程并捕获 stdout/stderr（UTF-8，无 BOM 干扰）。
         /// </summary>
         private static int Run(string exe, string script, string[] args, int timeoutSec,
-            out string stdout, out string stderr)
+            out string stdout, out string stderr, string stdin = null)
         {
             ScrubDuplicateEnvVars();
 
@@ -505,6 +505,7 @@ namespace GeZi.Core.Api
                 CreateNoWindow = true,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
+                RedirectStandardInput = stdin != null,
                 StandardOutputEncoding = Encoding.UTF8,
                 StandardErrorEncoding = Encoding.UTF8,
                 WorkingDirectory = workDir,
@@ -540,6 +541,11 @@ namespace GeZi.Core.Api
             using (var p = new Process { StartInfo = psi })
             {
                 p.Start();
+                if (stdin != null)
+                {
+                    p.StandardInput.Write(stdin);
+                    p.StandardInput.Close();
+                }
                 // 同步整块读取。之前用 BeginOutputReadLine + WaitForExit 的异步方式，
                 // 在 WaitForExit 返回时输出事件回调可能尚未跑完，导致 stdout 恒为空
                 // （表现为"自检无输出"）。助手脚本输出量极小（单行 JSON），

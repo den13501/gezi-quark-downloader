@@ -84,6 +84,10 @@ namespace GeZi
         public static bool OpenUrl(string url)
         {
             if (string.IsNullOrWhiteSpace(url)) return false;
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return false;
+            if (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp) return false;
+            if (!string.IsNullOrEmpty(uri.UserInfo)) return false;
+            url = uri.AbsoluteUri;
 
             long code = Fire("open", url, null);
             if (code > ShellExecuteErrorThreshold) return true;

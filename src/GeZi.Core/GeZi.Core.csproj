@@ -70,9 +70,10 @@
       为什么要内置：pan.quark.cn 的 ALB 按 TLS ClientHello 的 supported_groups
       扩展大小过滤（阈值约 1600 字节）。.NET SChannel 只声明 X25519+P-256+P-384
       （约 300 到 350B），必被 TCP RST；且 OpenSSL 3.0.x 也不行（约 1500B 仍被拒），
-      只有 OpenSSL 3.2+ 才放行。所以只能随身带一个足够新的 OpenSSL。
+      因此随程序携带已通过实际 TLS 自检的 OpenSSL 运行时；具体版本以
+      Python helper 的 TLS 自检输出为准，不在这里硬编码。
 
-      运行时来源：官方 CPython 3.13（OpenSSL 3.5.7），去掉 site-packages/test/
+      运行时来源：官方 CPython 3.13 精简运行时，去掉 site-packages/test/
       tkinter/ensurepip 等，标准库压成 python313.zip（2.4MB），核心约 20MB。
 
       分发策略：随主程序复制到输出目录，用户机器上即使没有 Python 也能扫码登录。

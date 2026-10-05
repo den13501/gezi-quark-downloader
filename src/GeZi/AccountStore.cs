@@ -18,6 +18,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Xml.Serialization;
 using GeZi.Core.Support;
@@ -94,7 +95,21 @@ namespace GeZi
         }
 
         private static string ProfilePath(string key)
+            => Path.Combine(AccountsDir, SafeKey(key) + "_" + KeyHash(key) + ".xml");
+
+        private static string LegacyProfilePath(string key)
             => Path.Combine(AccountsDir, SafeKey(key) + ".xml");
+
+        private static string KeyHash(string key)
+        {
+            using (var sha = SHA256.Create())
+            {
+                byte[] hash = sha.ComputeHash(Encoding.UTF8.GetBytes(key ?? ""));
+                var sb = new StringBuilder(12);
+                for (int i = 0; i < 6; i++) sb.Append(hash[i].ToString("x2"));
+                return sb.ToString();
+            }
+        }
 
         /// <summary>
         /// 保存/更新一个账号档案。close 时把同一标识的旧档案覆盖（不递增），
@@ -109,19 +124,20 @@ namespace GeZi
                 try
                 {
                     Directory.CreateDirectory(AccountsDir);
-                    var p = LoadRaw(ProfilePath(key)) ?? new AccountProfile { Key = key };
+                    string path = ProfilePath(key);
+                    string legacyPath = LegacyProfilePath(key);
+                    var p = LoadRaw(path) ?? LoadRaw(legacyPath) ?? new AccountProfile { Key = key };
                     p.Key = key;
                     if (!string.IsNullOrEmpty(nick))
                         p.Nick = nick;
                     p.Cookie = SecretProtector.Protect(cookie ?? "");
                     p.LastUsedUtc = DateTime.UtcNow;
 
-                    var tmp = ProfilePath(key) + ".tmp";
-                    using (var fs = File.Create(tmp))
-                        Ser.Serialize(fs, p);
-                    if (File.Exists(ProfilePath(key)))
-                        File.Delete(ProfilePath(key));
-                    File.Move(tmp, ProfilePath(key));
+                    AtomicFile.Write(path, fs => Ser.Serialize(fs, p));
+                    if (!string.Equals(path, legacyPath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        try { if (File.Exists(legacyPath)) File.Delete(legacyPath); } catch { }
+                    }
                 }
                 catch
                 {
@@ -168,8 +184,10 @@ namespace GeZi
                 return null;
             lock (Locker)
             {
-                var p = LoadRaw(ProfilePath(key));
+                var p = LoadRaw(ProfilePath(key)) ?? LoadRaw(LegacyProfilePath(key));
                 if (p == null)
+                    return null;
+                if (!string.Equals(p.Key, key, StringComparison.Ordinal))
                     return null;
                 p.Cookie = SecretProtector.Unprotect(p.Cookie);
                 return p;
@@ -185,12 +203,17 @@ namespace GeZi
             {
                 try
                 {
-                    var p = ProfilePath(key);
-                    if (File.Exists(p))
+                    bool removed = false;
+                    foreach (var p in new[] { ProfilePath(key), LegacyProfilePath(key) })
                     {
+                        if (!File.Exists(p)) continue;
+                        var profile = LoadRaw(p);
+                        if (profile != null && !string.Equals(profile.Key, key, StringComparison.Ordinal))
+                            continue;
                         File.Delete(p);
-                        return true;
+                        removed = true;
                     }
+                    return removed;
                 }
                 catch { }
                 return false;
@@ -203,8 +226,18 @@ namespace GeZi
             {
                 if (!File.Exists(path))
                     return null;
-                using (var fs = File.OpenRead(path))
-                    return Ser.Deserialize(fs) as AccountProfile;
+                try
+                {
+                    using (var fs = File.OpenRead(path))
+                        return Ser.Deserialize(fs) as AccountProfile;
+                }
+                catch
+                {
+                    string backup = path + ".bak";
+                    if (!File.Exists(backup)) throw;
+                    using (var fs = File.OpenRead(backup))
+                        return Ser.Deserialize(fs) as AccountProfile;
+                }
             }
             catch
             {

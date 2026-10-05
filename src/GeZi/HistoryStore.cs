@@ -79,16 +79,12 @@ namespace GeZi
             {
                 if (File.Exists(StatePath))
                 {
-                    using (var fs = File.OpenRead(StatePath))
+                    var s = ReadState(StatePath);
+                    if (s != null)
                     {
-                        var ser = new DataContractJsonSerializer(typeof(State));
-                        var s = ser.ReadObject(fs) as State;
-                        if (s != null)
-                        {
-                            if (s.Records == null) s.Records = new List<HistoryRecord>();
-                            if (s.Pending == null) s.Pending = new List<PendingTask>();
-                            return s;
-                        }
+                        if (s.Records == null) s.Records = new List<HistoryRecord>();
+                        if (s.Pending == null) s.Pending = new List<PendingTask>();
+                        return s;
                     }
                 }
             }
@@ -101,17 +97,29 @@ namespace GeZi
             try
             {
                 string path = StatePath;
-                string tmp = path + ".tmp";
-                // 原子写：先写临时文件再替换，避免写一半留下半截 JSON 导致下次读崩。
-                using (var fs = File.Create(tmp))
+                AtomicFile.Write(path, fs =>
                 {
                     var ser = new DataContractJsonSerializer(typeof(State));
                     ser.WriteObject(fs, s);
-                }
-                if (File.Exists(path)) File.Delete(path);
-                File.Move(tmp, path);
+                });
             }
             catch { }
+        }
+
+        private static State ReadState(string path)
+        {
+            try
+            {
+                using (var fs = File.OpenRead(path))
+                    return new DataContractJsonSerializer(typeof(State)).ReadObject(fs) as State;
+            }
+            catch
+            {
+                string backup = path + ".bak";
+                if (!File.Exists(backup)) throw;
+                using (var fs = File.OpenRead(backup))
+                    return new DataContractJsonSerializer(typeof(State)).ReadObject(fs) as State;
+            }
         }
 
         // ---------------- 历史记录 ----------------
