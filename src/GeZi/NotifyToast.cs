@@ -60,7 +60,7 @@ namespace GeZi
             WindowStartupLocation = WindowStartupLocation.Manual;
             Background = Brushes.Transparent;
             FontFamily = (FontFamily)(TryFindResource("AppFontFamily")
-                                      ?? new FontFamily("Microsoft YaHei UI, Segoe UI"));
+                                      ?? new FontFamily("Microsoft JhengHei UI, Segoe UI"));
             SnapsToDevicePixels = true;
             UseLayoutRounding = true;
             TextOptions.SetTextFormattingMode(this, TextFormattingMode.Display);

@@ -50,7 +50,7 @@ namespace GeZi
 
         public static MessageBoxResult Show(Window owner, string text)
         {
-            return Show(owner, text, "提示", MessageBoxButton.OK,
+            return Show(owner, text, UiText.Get("String.Code.AppDialog.xaml.54474b693d"), MessageBoxButton.OK,
                         MessageBoxImage.Information, MessageBoxResult.OK);
         }
 
@@ -163,7 +163,7 @@ namespace GeZi
         {
             // 窗口标题也要跟着内容变（任务栏 / Alt-Tab / UIA 都读这个），
             // 只改 TitleText 的话，所有对话框在系统层面都叫「提示」。
-            this.Title = string.IsNullOrEmpty(title) ? "提示" : title;
+            this.Title = string.IsNullOrEmpty(title) ? UiText.Get("String.Code.AppDialog.xaml.54474b693d") : title;
             TitleText.Text = this.Title;
             BodyText.Text = text ?? "";
             _defaultResult = defaultResult;
@@ -221,34 +221,34 @@ namespace GeZi
             switch (button)
             {
                 case MessageBoxButton.OK:
-                    Btn1.Content = "确定";
+                    Btn1.Content = UiText.Get("String.Code.AppDialog.xaml.a58e97a9f8");
                     Btn1.Tag = MessageBoxResult.OK;
                     Btn2.Visibility = Visibility.Collapsed;
                     Btn3.Visibility = Visibility.Collapsed;
                     break;
 
                 case MessageBoxButton.OKCancel:
-                    Btn2.Content = "确定";
+                    Btn2.Content = UiText.Get("String.Code.AppDialog.xaml.a58e97a9f8");
                     Btn2.Tag = MessageBoxResult.OK;
-                    Btn1.Content = "取消";
+                    Btn1.Content = UiText.Get("String.Code.AppDialog.xaml.06dbb49961");
                     Btn1.Tag = MessageBoxResult.Cancel;
                     Btn3.Visibility = Visibility.Collapsed;
                     break;
 
                 case MessageBoxButton.YesNo:
-                    Btn2.Content = "是(Y)";
+                    Btn2.Content = UiText.Get("String.Code.AppDialog.xaml.695e4a5ee0");
                     Btn2.Tag = MessageBoxResult.Yes;
-                    Btn1.Content = "否(N)";
+                    Btn1.Content = UiText.Get("String.Code.AppDialog.xaml.dce9ace615");
                     Btn1.Tag = MessageBoxResult.No;
                     Btn3.Visibility = Visibility.Collapsed;
                     break;
 
                 case MessageBoxButton.YesNoCancel:
-                    Btn3.Content = "是(Y)";
+                    Btn3.Content = UiText.Get("String.Code.AppDialog.xaml.695e4a5ee0");
                     Btn3.Tag = MessageBoxResult.Yes;
-                    Btn2.Content = "否(N)";
+                    Btn2.Content = UiText.Get("String.Code.AppDialog.xaml.dce9ace615");
                     Btn2.Tag = MessageBoxResult.No;
-                    Btn1.Content = "取消";
+                    Btn1.Content = UiText.Get("String.Code.AppDialog.xaml.06dbb49961");
                     Btn1.Tag = MessageBoxResult.Cancel;
                     Btn3.Visibility = Visibility.Visible;
                     break;

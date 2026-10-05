@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
-        Title="鸽子下载 · 小窗"
+        Title="{DynamicResource String.MiniWindow.Window.Title.778747a3}"
         WindowStyle="None"
         Background="{DynamicResource SurfaceBrush}"
         ShowInTaskbar="False"
@@ -42,7 +42,7 @@
                       Stroke="{DynamicResource PrimaryBrush}" StrokeThickness="1.8"
                       StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                       StrokeLineJoin="Round"/>
-                <TextBlock x:Name="TitleText" Text="下载中"
+                <TextBlock x:Name="TitleText" Text="{DynamicResource String.MiniWindow.TitleText.Text.327d59b5}"
                            Margin="32,0,36,0" VerticalAlignment="Center"
                            FontSize="12.5" FontWeight="SemiBold"
                            Foreground="{DynamicResource TextPrimaryBrush}"
@@ -50,11 +50,11 @@
                 <!-- 收起：只是隐藏小窗，程序继续在托盘跑 -->
                 <Button x:Name="HideBtn" Click="OnHideClick"
                         shell:WindowChrome.IsHitTestVisibleInChrome="True"
-                        AutomationProperties.Name="收起小窗"
+                        AutomationProperties.Name="{DynamicResource String.MiniWindow.HideBtn.AutomationName.5b3d8256}"
                         HorizontalAlignment="Right" VerticalAlignment="Center"
                         Margin="0,0,6,0" Width="26" Height="26"
                         Style="{StaticResource CaptionCloseButton}"
-                        ToolTip="收起小窗（程序继续在托盘运行）">
+                        ToolTip="{DynamicResource String.MiniWindow.HideBtn.ToolTip.a7fadb4e}">
                     <Path Data="{StaticResource IconClose}" Stretch="Uniform" Width="10" Height="10"
                           Stroke="{DynamicResource TextSecondaryBrush}" StrokeThickness="1.8"
                           StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
@@ -77,7 +77,7 @@
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel>
-                        <TextBlock Text="总速度" FontSize="11"
+                        <TextBlock Text="{DynamicResource String.MiniWindow.TextBlock.Text.b20d1238}" FontSize="11"
                                    Foreground="{DynamicResource TextTertiaryBrush}"/>
                         <TextBlock x:Name="TotalSpeedText" Text="—"
                                    FontSize="14" FontWeight="SemiBold"
@@ -85,7 +85,7 @@
                                    Style="{StaticResource NumericText}"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1">
-                        <TextBlock Text="已完成" FontSize="11"
+                        <TextBlock Text="{DynamicResource String.MiniWindow.TextBlock.Text.e99b48a2}" FontSize="11"
                                    Foreground="{DynamicResource TextTertiaryBrush}"/>
                         <TextBlock x:Name="TotalPercentText" Text="—"
                                    FontSize="14" FontWeight="SemiBold"
@@ -93,7 +93,7 @@
                                    Style="{StaticResource NumericText}"/>
                     </StackPanel>
                     <StackPanel Grid.Column="2">
-                        <TextBlock Text="剩余文件" FontSize="11"
+                        <TextBlock Text="{DynamicResource String.MiniWindow.TextBlock.Text.410651ed}" FontSize="11"
                                    Foreground="{DynamicResource TextTertiaryBrush}"/>
                         <TextBlock x:Name="RemainText" Text="—"
                                    FontSize="14" FontWeight="SemiBold"
@@ -105,11 +105,11 @@
 
             <!-- 底部：打开主窗口 -->
             <Border Margin="0,10,0,0" Padding="10,5"
-                    AutomationProperties.Name="打开主窗口"
+                    AutomationProperties.Name="{DynamicResource String.MiniWindow.Border.AutomationName.b833a6ea}"
                     shell:WindowChrome.IsHitTestVisibleInChrome="True"
                     Background="{DynamicResource SurfaceAltBrush}"
                     MouseLeftButtonUp="OnOpenMainClick" Cursor="Hand">
-                <TextBlock Text="打开主窗口" FontSize="12" HorizontalAlignment="Center"
+                <TextBlock Text="{DynamicResource String.MiniWindow.TextBlock.Text.b833a6ea}" FontSize="12" HorizontalAlignment="Center"
                            Foreground="{DynamicResource TextSecondaryBrush}"/>
             </Border>
         </StackPanel>

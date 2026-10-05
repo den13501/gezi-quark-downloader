@@ -19,7 +19,7 @@
     <!-- ============================================================
          基础：字体
          ============================================================ -->
-    <FontFamily x:Key="AppFontFamily">Microsoft YaHei UI, Microsoft YaHei, Segoe UI</FontFamily>
+    <FontFamily x:Key="AppFontFamily">Microsoft JhengHei UI, Microsoft JhengHei, Segoe UI</FontFamily>
     <FontFamily x:Key="MonoFontFamily">Consolas, Cascadia Mono, Courier New</FontFamily>
 
     <!-- 数字文本（速度、大小、百分比）—— 等宽 + Display 模式防抖动 -->

@@ -38,6 +38,9 @@ namespace GeZi
         internal static readonly int WmActivateMain =
             NativeMethods.RegisterWindowMessageW("GeZi_Activate_MainWindow_v1");
 
+        /// <summary>標記主視窗 HWND 的固定屬性名稱；不得依賴本地化標題判定。</summary>
+        internal const string MainWindowPropertyName = "GeZi_MainWindow_v1";
+
         /// <summary>主窗口是否已显示过（供第二实例激活逻辑判断）。</summary>
         internal static bool MainShown;
 
@@ -77,14 +80,14 @@ namespace GeZi
                 try
                 {
                     AppDialog.Show(Current != null ? Current.MainWindow : null,
-                        "程序发生未处理错误：\n\n" + args.Exception.Message,
-                        "鸽子下载", MessageBoxButton.OK, MessageBoxImage.Error);
+                        UiText.Get("String.Code.App.xaml.fca10eb2f6") + args.Exception.Message,
+                        UiText.Get("String.Code.App.xaml.f7ce1a0d11"), MessageBoxButton.OK, MessageBoxImage.Error);
                 }
                 catch
                 {
                     // 对话框自身失败时退回系统弹窗，保证用户至少能看到错误
-                    MessageBox.Show("程序发生未处理错误：\n\n" + args.Exception.Message,
-                        "鸽子下载", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show(UiText.Get("String.Code.App.xaml.fca10eb2f6") + args.Exception.Message,
+                        UiText.Get("String.Code.App.xaml.f7ce1a0d11"), MessageBoxButton.OK, MessageBoxImage.Error);
                 }
                 args.Handled = true;
             };
@@ -187,7 +190,7 @@ namespace GeZi
         /// 首选路径是 <see cref="NotifyExistingInstance"/> 里的广播消息（由旧进程自己激活，
         /// 能绕过前台锁定）；这里只在消息可能丢失（旧实例还没装钩子）时补一刀。
         ///
-        /// 只认「进程名是 GeZi 且窗口标题含主标题」的窗口，避免误激活气泡或对话框。
+        /// 只認「進程名是 GeZi 且帶固定主視窗屬性」的視窗，避免誤激活氣泡或對話框。
         /// 找不到就静默。
         ///
         /// ⚠️ **必须同时匹配「隐藏」的窗口**：
@@ -196,7 +199,7 @@ namespace GeZi
         /// 早期实现只枚举可见窗口 → 隐藏的主窗被跳过 → 新启动的进程判定
         /// "找不到已有实例" → 什么都不显示就退出。
         /// 用户看到的现象就是：「托盘图标在，但主窗口不弹出，得手动点托盘」。
-        /// 所以这里**不看可见性**，只看窗口标题 + 属于 GeZi 进程。
+        /// 所以這裡**不看可見性或本地化標題**，只看固定屬性 + 屬於 GeZi 進程。
         /// </summary>
         private static void ActivateExistingInstance()
         {
@@ -205,14 +208,10 @@ namespace GeZi
                 IntPtr found = IntPtr.Zero;
                 NativeMethods.EnumWindows((hWnd, _) =>
                 {
-                    // 只考虑顶层窗口（EnumWindows 已是顶层，这里再排掉没有标题的）
-                    var sb = new StringBuilder(256);
-                    NativeMethods.GetWindowTextW(hWnd, sb, sb.Capacity);
-                    string title = sb.ToString();
-                    if (title.IndexOf("鸽子下载", StringComparison.Ordinal) < 0)
-                        return true;   // 继续枚举
+                    if (NativeMethods.GetProp(hWnd, MainWindowPropertyName) == IntPtr.Zero)
+                        return true;
 
-                    // 确认属于同名进程（防止匹配到别的程序里含"鸽子下载"字样的窗口）
+                    // 確認屬於同名進程，避免其他程式意外使用相同 HWND 屬性。
                     uint pid;
                     NativeMethods.GetWindowThreadProcessId(hWnd, out pid);
                     try

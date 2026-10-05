@@ -48,6 +48,15 @@ namespace GeZi
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         internal static extern int GetWindowTextW(IntPtr hWnd, System.Text.StringBuilder lpString, int nMaxCount);
 
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        internal static extern bool SetProp(IntPtr hWnd, string lpString, IntPtr hData);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        internal static extern IntPtr GetProp(IntPtr hWnd, string lpString);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        internal static extern IntPtr RemoveProp(IntPtr hWnd, string lpString);
+
         [DllImport("user32.dll")]
         internal static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 

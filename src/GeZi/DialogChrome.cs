@@ -134,7 +134,7 @@ namespace GeZi
             w.Height = height;
             w.WindowStartupLocation = WindowStartupLocation.CenterOwner;
             w.ShowInTaskbar = false;
-            w.FontFamily = Res<FontFamily>("AppFontFamily", new FontFamily("Microsoft YaHei UI, Segoe UI"));
+            w.FontFamily = Res<FontFamily>("AppFontFamily", new FontFamily("Microsoft JhengHei UI, Segoe UI"));
             w.Background = Res<Brush>("AppBgBrush", Brushes.White);
             w.SnapsToDevicePixels = true;
             w.UseLayoutRounding = true;

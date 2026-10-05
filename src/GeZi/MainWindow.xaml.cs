@@ -225,7 +225,7 @@ namespace GeZi
             string[] candidates =
             {
                 _settings.OutDir,
-                Path.Combine(Util.GetDownloadsFolder(), "鸽子下载"),
+                Path.Combine(Util.GetDownloadsFolder(), UiText.Get("String.Code.MainWindow.xaml.f7ce1a0d11")),
                 Util.GetLocalAppDataDir(),
                 Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Downloads"),
             };
@@ -243,7 +243,7 @@ namespace GeZi
             {
                 _settings.OutDir = resolved;
                 SettingsStore.Save(_settings);
-                Log("下载目录不可写（可能是 Windows「受控文件夹访问」拦截），已改用: " + resolved);
+                Log(UiText.Get("String.Code.MainWindow.xaml.3858a28bcb") + resolved);
             }
 
             _scheduler = new DownloadScheduler(_settings.ConcurrentTasks);
@@ -294,8 +294,9 @@ namespace GeZi
                 // （广播消息由 App.NotifyExistingInstance 发出）。
                 try
                 {
-                    var src = System.Windows.Interop.HwndSource.FromHwnd(
-                        new System.Windows.Interop.WindowInteropHelper(this).Handle);
+                    var handle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+                    NativeMethods.SetProp(handle, App.MainWindowPropertyName, new IntPtr(1));
+                    var src = System.Windows.Interop.HwndSource.FromHwnd(handle);
                     src?.AddHook(WndProc);
                 }
                 catch { }
@@ -303,13 +304,13 @@ namespace GeZi
 
             if (!string.IsNullOrEmpty(_settings.Cookie))
             {
-                Log("正在自动登录…");
+                Log(UiText.Get("String.Code.MainWindow.xaml.b35e17576f"));
                 // 记下这个任务：续传前要等它（见 EnsureClientForResumeAsync）。
                 _startupLoginTask = ApplyLoginAsync(_settings.Cookie);
             }
             else
             {
-                Log("就绪。未登录：可用「分享链接」模式下载公开分享，或到「登录」页扫码。");
+                Log(UiText.Get("String.Code.MainWindow.xaml.32f21df4c2"));
             }
 
             // 【2026-10-02 修复】首屏必须主动刷一次空状态。
@@ -360,6 +361,13 @@ namespace GeZi
 
         protected override void OnClosed(EventArgs e)
         {
+            try
+            {
+                var handle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+                if (handle != IntPtr.Zero)
+                    NativeMethods.RemoveProp(handle, App.MainWindowPropertyName);
+            }
+            catch { }
             try { _logFlushTimer?.Stop(); } catch { }
             try { _client?.StopKeepAlive(); } catch { }
             // ⚠️ 托盘图标必须释放：不释放的话进程退出后图标会留在通知区，
@@ -473,7 +481,7 @@ namespace GeZi
                 int running = active.Count(t => t.State == JobState.Downloading);
 
                 string pct = total > 0 ? (done * 100.0 / total).ToString("F1") + "%" : "—";
-                string line = string.Format("下载中：{0} 个任务（{1} 个在跑），总速度 {2}/s，总进度 {3}",
+                string line = string.Format(UiText.Get("String.Code.MainWindow.xaml.e2d2b85b13"),
                     active.Count, running,
                     Util.FormatSize((long)speed), pct);
 
@@ -530,7 +538,7 @@ namespace GeZi
                 if (idx >= 0 && idx + 1 < text.Length)
                 {
                     // 只在开头提示一次，让用户知道上面被截了
-                    LogBox.Text = "…（更早的日志已省略，仅保留最近 " + LogMaxLines + " 行）"
+                    LogBox.Text = UiText.Get("String.Code.MainWindow.xaml.33f5583e50") + LogMaxLines + UiText.Get("String.Code.MainWindow.xaml.76953b759f")
                                   + Environment.NewLine + text.Substring(idx + 1);
                 }
             }
@@ -648,9 +656,9 @@ namespace GeZi
             if (snap.Files.Count > 0)
             {
                 ApplyNav(snap);
-                Log("已切回上次的目录" + (snap.PathList.Count > 0
+                Log(UiText.Get("String.Code.MainWindow.xaml.19166b09e5") + (snap.PathList.Count > 0
                         ? "：" + string.Join(" / ", snap.PathList)
-                        : "（根目录）"));
+                        : UiText.Get("String.Code.MainWindow.xaml.788a3a8f28")));
                 return;
             }
 
@@ -660,7 +668,7 @@ namespace GeZi
             {
                 if (_client == null)
                 {
-                    Log("网盘模式需要先登录");
+                    Log(UiText.Get("String.Code.MainWindow.xaml.e6b6052e94"));
                     return;
                 }
                 await LoadDirAsync("0");
@@ -743,7 +751,7 @@ namespace GeZi
             }
             catch (Exception ex)
             {
-                Log("打开二维码识别窗口失败: " + ex.Message);
+                Log(UiText.Get("String.Code.MainWindow.xaml.b30608a50f") + ex.Message);
             }
         }
 
@@ -771,22 +779,22 @@ namespace GeZi
                 if (!looksLikeLink)
                 {
                     // 不是可识别的分享链接：只填不解析，给出明确提示
-                    Log("二维码识别为：" + text);
+                    Log(UiText.Get("String.Code.MainWindow.xaml.8a69bca6f2") + text);
                     if (info.IsKouling)
                     {
                         AppDialog.Show(this,
-                            "识别出的内容是【夸克口令】，不是分享链接：\n\n" + text + "\n\n" +
-                            "夸克没有公开的「口令转链接」接口，本工具无法直接解析。\n" +
-                            "请在夸克 App 里打开这条口令，进入分享页后点「分享」→「复制链接」，\n" +
-                            "再把拿到的 https://pan.quark.cn/s/… 链接粘进来。",
-                            "这是夸克口令", MessageBoxButton.OK, MessageBoxImage.Information);
+                            UiText.Get("String.Code.MainWindow.xaml.9b9ca3cd16") + text + "\n\n" +
+                            UiText.Get("String.Code.MainWindow.xaml.5b3904e926") +
+                            UiText.Get("String.Code.MainWindow.xaml.8e02d7ba16") +
+                            UiText.Get("String.Code.MainWindow.xaml.51d05b736d"),
+                            UiText.Get("String.Code.MainWindow.xaml.d5256c2911"), MessageBoxButton.OK, MessageBoxImage.Information);
                     }
                     else
                     {
                         AppDialog.Show(this,
-                            "二维码识别成功，但内容看起来不是分享链接：\n\n" + text + "\n\n" +
-                            "已填进链接框，你可以自己确认一下。",
-                            "识别结果", MessageBoxButton.OK, MessageBoxImage.Information);
+                            UiText.Get("String.Code.MainWindow.xaml.d042fd595b") + text + "\n\n" +
+                            UiText.Get("String.Code.MainWindow.xaml.c90fbe1de8"),
+                            UiText.Get("String.Code.MainWindow.xaml.1d11001a03"), MessageBoxButton.OK, MessageBoxImage.Information);
                     }
                     return;
                 }
@@ -795,12 +803,12 @@ namespace GeZi
                 if (!string.IsNullOrEmpty(info.Passcode))
                     PassBox.Text = info.Passcode;
 
-                Log("二维码识别出分享链接，开始解析…");
+                Log(UiText.Get("String.Code.MainWindow.xaml.ea99789bfe"));
                 OnParseClick(null, null);
             }
             catch (Exception ex)
             {
-                Log("处理识别结果失败: " + ex.Message);
+                Log(UiText.Get("String.Code.MainWindow.xaml.4fd2096ec4") + ex.Message);
             }
         }
 
@@ -809,7 +817,7 @@ namespace GeZi
             string url = LinkBox.Text.Trim();
             if (string.IsNullOrEmpty(url))
             {
-                Log("请先粘贴分享链接");
+                Log(UiText.Get("String.Code.MainWindow.xaml.b157adb420"));
                 return;
             }
             var info = ShareUrlParser.Parse(url);
@@ -818,22 +826,22 @@ namespace GeZi
                 // 夸克口令（形如 /~469d3M9zTu~:/）**不是**分享链接，也没有公开的
                 // 「口令 → 链接」接口（查过官方开放平台与非官方 API 文档，分享相关
                 // 接口只接受 pwd_id）。所以这里不装作能解析，直接给出可操作的指引。
-                Log("这是夸克口令（/~" + info.Kouling + "~:/），不是分享链接，无法直接解析。");
+                Log(UiText.Get("String.Code.MainWindow.xaml.8f390a3813") + info.Kouling + UiText.Get("String.Code.MainWindow.xaml.e550e604e5"));
                 AppDialog.Show(this,
-                    "这是一条【夸克口令】，不是分享链接。\n\n" +
-                    "夸克没有公开「口令转链接」的接口，本工具无法直接解析它。\n\n" +
-                    "请这样拿到链接：\n" +
-                    "1. 在夸克 App / 夸克网盘客户端里打开这条口令；\n" +
-                    "2. 进入分享页后点「分享」→「复制链接」；\n" +
-                    "3. 把复制到的 https://pan.quark.cn/s/… 链接粘回这里即可。\n\n" +
-                    "（如果对方同时给了链接和提取码，直接整段粘贴进来也行 —— " +
-                    "本工具会自动把链接和提取码都认出来。）",
-                    "这是夸克口令", MessageBoxButton.OK, MessageBoxImage.Information);
+                    UiText.Get("String.Code.MainWindow.xaml.6d3e08b576") +
+                    UiText.Get("String.Code.MainWindow.xaml.1abf319b5f") +
+                    UiText.Get("String.Code.MainWindow.xaml.7c16e9d35b") +
+                    UiText.Get("String.Code.MainWindow.xaml.4ea1bfd219") +
+                    UiText.Get("String.Code.MainWindow.xaml.adde39f378") +
+                    UiText.Get("String.Code.MainWindow.xaml.b364546090") +
+                    UiText.Get("String.Code.MainWindow.xaml.74d5f7ac38") +
+                    UiText.Get("String.Code.MainWindow.xaml.478d64091f"),
+                    UiText.Get("String.Code.MainWindow.xaml.d5256c2911"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
             if (string.IsNullOrEmpty(info.PwdId))
             {
-                Log("无法从链接解析出分享 ID");
+                Log(UiText.Get("String.Code.MainWindow.xaml.f3109300db"));
                 return;
             }
             string passcode = string.IsNullOrEmpty(PassBox.Text.Trim()) ? info.Passcode : PassBox.Text.Trim();
@@ -849,24 +857,24 @@ namespace GeZi
 
             // 解析要发两次网络请求（换 stoken + 拉目录），期间必须让用户看到"在忙"
             long t0 = BusyClock();
-            if (!BeginBusy(ParseBtn, "解析中")) return;
+            if (!BeginBusy(ParseBtn, UiText.Get("String.Code.MainWindow.xaml.78fbf1f625"))) return;
             SetBusy(true);
             try
             {
                 _stoken = await _client.GetStokenAsync(info.PwdId, passcode);
                 if (string.IsNullOrEmpty(_stoken))
                 {
-                    Log("获取分享凭证失败（可能需登录或提取码错误）");
+                    Log(UiText.Get("String.Code.MainWindow.xaml.e19f521b97"));
                     return;
                 }
                 ResetNav();
                 _curFid = info.StartFid;
                 await LoadDirAsync(_curFid);
-                Log("解析成功，双击文件夹进入子目录，或直接下载当前目录文件");
+                Log(UiText.Get("String.Code.MainWindow.xaml.894f16ae99"));
             }
             catch (Exception ex)
             {
-                Log("解析失败: " + ex.Message);
+                Log(UiText.Get("String.Code.MainWindow.xaml.da63116561") + ex.Message);
             }
             finally
             {
@@ -971,7 +979,7 @@ namespace GeZi
                         IsDir = it.IsDir, Token = it.Token,
                     });
                 }
-                Log("目录加载完成: " + _files.Count + " 项");
+                Log(UiText.Get("String.Code.MainWindow.xaml.e2a774b121") + _files.Count + UiText.Get("String.Code.MainWindow.xaml.a225daba50"));
 
                 // 【2026-10-03】文件夹大小：夸克列表接口对目录**恒返回 size=0**，
                 // 所以列表里所有文件夹都显示「0 B」。这里在**后台**递归把子文件加起来，
@@ -980,7 +988,7 @@ namespace GeZi
             }
             catch (Exception ex)
             {
-                Log("加载目录失败: " + ex.Message);
+                Log(UiText.Get("String.Code.MainWindow.xaml.1f45b39154") + ex.Message);
             }
             finally
             {
@@ -1053,7 +1061,7 @@ namespace GeZi
                 {
                     if (ct.IsCancellationRequested) return;
                     d.DirSizeFailed = true;
-                    Log("计算文件夹大小失败（" + d.Name + "）：" + ex.Message);
+                    Log(UiText.Get("String.Code.MainWindow.xaml.7297d21850") + d.Name + "）：" + ex.Message);
                 }
             }
         }
@@ -1089,7 +1097,7 @@ namespace GeZi
         {
             // 刷新要重新拉一次目录（网络）→ 按钮就地变成"刷新中…"
             long t0 = BusyClock();
-            if (!BeginBusy(DriveRefreshBtn, "刷新中")) return;
+            if (!BeginBusy(DriveRefreshBtn, UiText.Get("String.Code.MainWindow.xaml.4ebaae759f"))) return;
             try
             {
                 await LoadDirAsync(_curFid);
@@ -1104,12 +1112,12 @@ namespace GeZi
         {
             if (_fidStack.Count == 0)
             {
-                Log("已在根目录");
+                Log(UiText.Get("String.Code.MainWindow.xaml.b08de05afd"));
                 return;
             }
             // ⚠️ 重入检查必须放在**改导航状态之前**：否则连点时会把栈 pop 两次却不加载
             long t0 = BusyClock();
-            if (!BeginBusy(DriveUpBtn, "返回中")) return;
+            if (!BeginBusy(DriveUpBtn, UiText.Get("String.Code.MainWindow.xaml.501e788eb7"))) return;
             try
             {
                 _curFid = _fidStack.Pop();
@@ -1173,11 +1181,11 @@ namespace GeZi
         {
             if (!ShareMode)
             {
-                Log("「免转存下载」只在分享模式下可用（网盘文件无需转存）。");
+                Log(UiText.Get("String.Code.MainWindow.xaml.858fbb2cfa"));
                 return;
             }
             long t0 = BusyClock();
-            if (!BeginBusy(DownloadSelBtn, "入队中")) return;
+            if (!BeginBusy(DownloadSelBtn, UiText.Get("String.Code.MainWindow.xaml.a25ab0730b"))) return;
             try
             {
                 await StartDownloadAsync(
@@ -1210,16 +1218,16 @@ namespace GeZi
         /// </summary>
         private async void OnDeleteCloudSelected(object sender, RoutedEventArgs e)
         {
-            if (_client == null) { Log("请先登录"); return; }
-            if (ShareMode) { Log("「删除网盘文件」只在「我的网盘」模式下可用（分享里的文件属于分享者）"); return; }
+            if (_client == null) { Log(UiText.Get("String.Code.MainWindow.xaml.375b4a970f")); return; }
+            if (ShareMode) { Log(UiText.Get("String.Code.MainWindow.xaml.2bd79cbfc4")); return; }
 
             var selected = FileList.SelectedItems.Cast<ShareFileItem>().ToList();
-            if (selected.Count == 0) { Log("没有选中任何文件"); return; }
+            if (selected.Count == 0) { Log(UiText.Get("String.Code.MainWindow.xaml.d4f993d83e")); return; }
 
             var ans = AppDialog.Show(this,
-                string.Format("确定从网盘删除选中的 {0} 项吗？\n\n" +
-                    "删除后会一并清空回收站，**无法恢复**。", selected.Count),
-                "删除网盘文件", MessageBoxButton.YesNo, MessageBoxImage.Warning,
+                string.Format(UiText.Get("String.Code.MainWindow.xaml.5d903b59ab") +
+                    UiText.Get("String.Code.MainWindow.xaml.3b80f54155"), selected.Count),
+                UiText.Get("String.Code.MainWindow.xaml.b6a34b7af6"), MessageBoxButton.YesNo, MessageBoxImage.Warning,
                 MessageBoxResult.No);
             if (ans != MessageBoxResult.Yes) return;
 
@@ -1229,17 +1237,17 @@ namespace GeZi
             SetBusy(true);
             try
             {
-                Log("正在删除网盘文件 " + fids.Count + " 项…");
+                Log(UiText.Get("String.Code.MainWindow.xaml.799dd00e40") + fids.Count + UiText.Get("String.Code.MainWindow.xaml.9351b1b3ae"));
                 await _client.DeleteAsync(fids);
                 try { await _client.PurgeRecycleAsync(fids); } catch { }
-                Log("已从网盘删除 " + fids.Count + " 项。");
+                Log(UiText.Get("String.Code.MainWindow.xaml.f14b731366") + fids.Count + UiText.Get("String.Code.MainWindow.xaml.b29e4d00ea"));
                 await LoadDirAsync(_curFid);   // 刷新列表
                 // 删文件会改变已用空间 —— 顺手把账号卡的容量也刷一下（用户要求）
                 await RefreshCapacityAsync();
             }
             catch (Exception ex)
             {
-                Log("删除网盘文件失败: " + ex.Message);
+                Log(UiText.Get("String.Code.MainWindow.xaml.b177115a15") + ex.Message);
             }
             finally
             {
@@ -1249,7 +1257,7 @@ namespace GeZi
 
         private void UpdatePathText()
         {
-            DrivePathText.Text = "根目录" + (_pathList.Count > 0 ? "/" + string.Join("/", _pathList) : "");
+            DrivePathText.Text = UiText.Get("String.Code.MainWindow.xaml.9e699a075a") + (_pathList.Count > 0 ? "/" + string.Join("/", _pathList) : "");
         }
 
         // ---------------- 下载 ----------------
@@ -1258,7 +1266,7 @@ namespace GeZi
         {
             // 下载前要先递归展开目录 + 取直链（网络）→ 按钮就地变成"入队中…"
             long t0 = BusyClock();
-            if (!BeginBusy(DownloadSelBtn, "入队中")) return;
+            if (!BeginBusy(DownloadSelBtn, UiText.Get("String.Code.MainWindow.xaml.a25ab0730b"))) return;
             try
             {
                 await StartDownloadAsync(FileList.SelectedItems.Cast<ShareFileItem>().ToList());
@@ -1272,7 +1280,7 @@ namespace GeZi
         private async void OnDownloadAll(object sender, RoutedEventArgs e)
         {
             long t0 = BusyClock();
-            if (!BeginBusy(DownloadAllBtn, "入队中")) return;
+            if (!BeginBusy(DownloadAllBtn, UiText.Get("String.Code.MainWindow.xaml.a25ab0730b"))) return;
             try
             {
                 await StartDownloadAsync(_files.ToList());
@@ -1306,13 +1314,13 @@ namespace GeZi
         {
             if (_client == null)
             {
-                Log("请先登录或解析分享");
+                Log(UiText.Get("String.Code.MainWindow.xaml.677003826a"));
                 return;
             }
             var selected = FileList.SelectedItems.Cast<ShareFileItem>().ToList();
             if (selected.Count == 0)
             {
-                Log("没有选中任何文件");
+                Log(UiText.Get("String.Code.MainWindow.xaml.d4f993d83e"));
                 return;
             }
 
@@ -1320,32 +1328,32 @@ namespace GeZi
             // 期间界面若毫无变化，用户会以为没点上，然后连点导致重复取链。
             // 所以按钮就地变成「获取中」+ 转圈，并在弹窗出现前一直保持。
             long t0 = BusyClock();
-            if (!BeginBusy(FetchLinksBtn, "获取中")) return;
+            if (!BeginBusy(FetchLinksBtn, UiText.Get("String.Code.MainWindow.xaml.2625b36461"))) return;
             SetBusy(true);
             try
             {
                 var files = await CollectFilesAsync(selected, "", 0);
-                if (files.Count == 0) { Log("没有可获取链接的文件"); return; }
+                if (files.Count == 0) { Log(UiText.Get("String.Code.MainWindow.xaml.10b812aaca")); return; }
                 if (files.Count > MaxFiles)
                 {
-                    Log(string.Format("文件数量过多（本次 {0} 个，单次上限 {1} 个），已中止。",
+                    Log(string.Format(UiText.Get("String.Code.MainWindow.xaml.c987bb141b"),
                         files.Count, MaxFiles));
                     return;
                 }
 
-                Log("共展开 " + files.Count + " 个文件，正在取直链…");
+                Log(UiText.Get("String.Code.MainWindow.xaml.4ca4465346") + files.Count + UiText.Get("String.Code.MainWindow.xaml.bf719e6555"));
                 var items = await GetDownloadItemsAsync(files);
-                if (items == null || items.Count == 0) { Log("未取到任何直链"); return; }
+                if (items == null || items.Count == 0) { Log(UiText.Get("String.Code.MainWindow.xaml.3671909bab")); return; }
 
                 var withUrl = items.Where(it => !string.IsNullOrEmpty(it.Url)).ToList();
                 int noUrl = items.Count - withUrl.Count;
                 if (withUrl.Count == 0)
                 {
-                    Log("全部条目都没有直链（分享可能已失效或限制游客下载）。");
+                    Log(UiText.Get("String.Code.MainWindow.xaml.13cd091a9d"));
                     return;
                 }
 
-                Log(string.Format("取到 {0} 条直链（{1} 条无链接）。", withUrl.Count, noUrl));
+                Log(string.Format(UiText.Get("String.Code.MainWindow.xaml.bb2a52a153"), withUrl.Count, noUrl));
 
                 // 先收掉加载态再弹窗，否则转圈会和对话框同时存在
                 await EndBusyAsync(FetchLinksBtn, t0);
@@ -1354,7 +1362,7 @@ namespace GeZi
             }
             catch (Exception ex)
             {
-                Log("获取直链失败：" + ex.Message);
+                Log(UiText.Get("String.Code.MainWindow.xaml.d62c01c8e4") + ex.Message);
             }
             finally
             {
@@ -1381,7 +1389,7 @@ namespace GeZi
             var win = new Window
             {
                 Owner = this,
-                Title = "获取直链",
+                Title = UiText.Get("String.Code.MainWindow.xaml.07727b9b12"),
             };
             // 统一弹窗外观（背景 / 字体 / 尺寸习惯），不再裸用系统默认样式
             DialogChrome.StyleWindow(win, 700, 520);
@@ -1392,16 +1400,16 @@ namespace GeZi
             root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // 页签 + 文件清单
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });   // 底部按钮
 
-            var title = DialogChrome.PageTitle(string.Format("获取直链（{0} 个文件）", items.Count));
+            var title = DialogChrome.PageTitle(string.Format(UiText.Get("String.Code.MainWindow.xaml.4a0dccd7a7"), items.Count));
             Grid.SetRow(title, 0);
             root.Children.Add(title);
 
             // ===== 说明：压成一行，说清"页签只选种类、导出靠下方按钮" =====
             // 这一行同时兼作**切换页签时的加载指示区**：切换期间整行原地换成
             // 「转圈 + 正在切换到 xxx…」，切完再换回说明文字（两者尺寸接近，不会跳）。
-            string hint = "先在上方选一种直链种类，再点下方「导出直链」——结果会复制到剪贴板，并另存为桌面上的 txt 文件。";
+            string hint = UiText.Get("String.Code.MainWindow.xaml.234f2def86");
             if (noUrlCount > 0)
-                hint += string.Format("（另有 {0} 条未取到链接，已略过）", noUrlCount);
+                hint += string.Format(UiText.Get("String.Code.MainWindow.xaml.c3efa0f630"), noUrlCount);
             var head = DialogChrome.Hint(hint, 0, 12);
 
             var hintBusyText = new TextBlock
@@ -1450,9 +1458,9 @@ namespace GeZi
             Grid.SetRow(strip, 0);
             host.Children.Add(strip);
 
-            var tabPlain = DialogChrome.FileTab("纯直链", LinkExporter.Format.Labeled);
-            var tabCurl = DialogChrome.FileTab("curl 命令", LinkExporter.Format.Curl);
-            var tabAria = DialogChrome.FileTab("aria2c 命令", LinkExporter.Format.Aria2);
+            var tabPlain = DialogChrome.FileTab(UiText.Get("String.Code.MainWindow.xaml.7e948b3bba"), LinkExporter.Format.Labeled);
+            var tabCurl = DialogChrome.FileTab(UiText.Get("String.Code.MainWindow.xaml.8516bcb8cb"), LinkExporter.Format.Curl);
+            var tabAria = DialogChrome.FileTab(UiText.Get("String.Code.MainWindow.xaml.5ca576e248"), LinkExporter.Format.Aria2);
             // 【用户要求】「后两者自带 UA 与 Cookie，把它的颜色改红」。
             // curl / aria2c 两种格式会把**登录凭证（UA + Cookie）**一起写进导出文件，
             // 属于敏感内容 → 用警示红标出来，和下载页那行提示保持同一套语义色。
@@ -1492,7 +1500,7 @@ namespace GeZi
                 syncTabs();
 
                 int my = ++switchSeq;
-                hintBusyText.Text = "正在切换到 " + name + "…";
+                hintBusyText.Text = UiText.Get("String.Code.MainWindow.xaml.4c6aa3baab") + name + "…";
                 head.Visibility = Visibility.Collapsed;
                 hintBusy.Visibility = Visibility.Visible;
 
@@ -1502,9 +1510,9 @@ namespace GeZi
                 hintBusy.Visibility = Visibility.Collapsed;
                 head.Visibility = Visibility.Visible;
             };
-            tabPlain.Click += (s, e) => { _ = switchTo(LinkExporter.Format.Labeled, "纯直链"); };
-            tabCurl.Click += (s, e) => { _ = switchTo(LinkExporter.Format.Curl, "curl 命令"); };
-            tabAria.Click += (s, e) => { _ = switchTo(LinkExporter.Format.Aria2, "aria2c 命令"); };
+            tabPlain.Click += (s, e) => { _ = switchTo(LinkExporter.Format.Labeled, UiText.Get("String.Code.MainWindow.xaml.7e948b3bba")); };
+            tabCurl.Click += (s, e) => { _ = switchTo(LinkExporter.Format.Curl, UiText.Get("String.Code.MainWindow.xaml.8516bcb8cb")); };
+            tabAria.Click += (s, e) => { _ = switchTo(LinkExporter.Format.Aria2, UiText.Get("String.Code.MainWindow.xaml.5ca576e248")); };
             syncTabs();
 
             var list = DialogChrome.StyledList();
@@ -1541,9 +1549,9 @@ namespace GeZi
             // ===== 底部按钮：等宽 =====
             // 【2026-10-02】「复制全部连接按钮改成导出直链」（按页签选中的种类导出）
             //              「把下载这些文件改成下载文件」
-            var copyAll = DialogChrome.PrimaryButton("导出直链");
-            var dlBtn = DialogChrome.SecondaryButton("下载文件");
-            var close = DialogChrome.SecondaryButton("关闭");
+            var copyAll = DialogChrome.PrimaryButton(UiText.Get("String.Code.MainWindow.xaml.7506b0438b"));
+            var dlBtn = DialogChrome.SecondaryButton(UiText.Get("String.Code.MainWindow.xaml.b18bd5f186"));
+            var close = DialogChrome.SecondaryButton(UiText.Get("String.Code.MainWindow.xaml.09614cef6c"));
             copyAll.MinWidth = 126;
             dlBtn.MinWidth = 126;
             close.MinWidth = 90;
@@ -1577,7 +1585,7 @@ namespace GeZi
         private void ExportLinksFromDialog(Window owner, List<DownloadItem> items,
             LinkExporter.Format format)
         {
-            if (_client == null) { Log("请先登录或解析分享"); return; }
+            if (_client == null) { Log(UiText.Get("String.Code.MainWindow.xaml.677003826a")); return; }
 
             var list = new List<LinkExporter.Item>();
             int skipped = 0;
@@ -1594,35 +1602,35 @@ namespace GeZi
                 _client.CookieStr, QuarkConstants.Referer, format);
             if (string.IsNullOrEmpty(text))
             {
-                Log("没有可导出的直链");
+                Log(UiText.Get("String.Code.MainWindow.xaml.5e6509f4ca"));
                 return;
             }
 
             string outFile = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
-                "GeZi-直链导出-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".txt");
+                UiText.Get("String.Code.MainWindow.xaml.8ace126f6b") + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".txt");
             try
             {
                 File.WriteAllText(outFile, text, new UTF8Encoding(false));
             }
             catch (Exception ex)
             {
-                Log("写导出文件失败：" + ex.Message);
+                Log(UiText.Get("String.Code.MainWindow.xaml.1a40146a51") + ex.Message);
                 outFile = null;
             }
 
-            Log(string.Format("已导出 {0} 条直链（格式：{1}），跳过 {2} 条无链接项。",
+            Log(string.Format(UiText.Get("String.Code.MainWindow.xaml.d8e060f7cb"),
                 list.Count, format, skipped));
             if (outFile != null)
-                Log("导出文件：" + outFile);
-            Log("注意：直链有时效，请尽快使用。");
+                Log(UiText.Get("String.Code.MainWindow.xaml.6b08f5fea3") + outFile);
+            Log(UiText.Get("String.Code.MainWindow.xaml.77f1233afe"));
 
             AppDialog.Show(owner,
-                string.Format("已导出 {0} 条直链（{1}）。\n\n文件：\n{2}\n\n" +
-                    "注意：直链带签名有时效，请尽快交给下载器使用。",
+                string.Format(UiText.Get("String.Code.MainWindow.xaml.dae30f2dd6") +
+                    UiText.Get("String.Code.MainWindow.xaml.842790b050"),
                     list.Count, FormatName(format),
-                    outFile ?? "（写入失败）"),
-                "导出完成", MessageBoxButton.OK, MessageBoxImage.Information);
+                    outFile ?? UiText.Get("String.Code.MainWindow.xaml.e95b69c915")),
+                UiText.Get("String.Code.MainWindow.xaml.eb4fd856fa"), MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         /// <summary>导出种类的显示名（日志与提示里用）。</summary>
@@ -1630,10 +1638,10 @@ namespace GeZi
         {
             switch (format)
             {
-                case LinkExporter.Format.Aria2: return "aria2c 命令";
-                case LinkExporter.Format.Curl: return "curl 命令";
-                case LinkExporter.Format.Labeled: return "纯直链";
-                default: return "纯直链";
+                case LinkExporter.Format.Aria2: return UiText.Get("String.Code.MainWindow.xaml.5ca576e248");
+                case LinkExporter.Format.Curl: return UiText.Get("String.Code.MainWindow.xaml.8516bcb8cb");
+                case LinkExporter.Format.Labeled: return UiText.Get("String.Code.MainWindow.xaml.7e948b3bba");
+                default: return UiText.Get("String.Code.MainWindow.xaml.7e948b3bba");
             }
         }
 
@@ -1678,7 +1686,7 @@ namespace GeZi
                 if (threads[i] != threads[0]) { uniform = false; break; }
             if (uniform)
             {
-                Log(string.Format("本批 {0} 个文件，每个 {1} 路并发。",
+                Log(string.Format(UiText.Get("String.Code.MainWindow.xaml.9e2dc852c1"),
                     threads.Length, threads[0]));
                 return;
             }
@@ -1690,7 +1698,7 @@ namespace GeZi
             }
             if (threads.Length > 12) sb.Append("…");
             Log(string.Format(
-                "已按文件大小分配连接数（总预算 {0}）：{1} —— 大文件多分、小文件少分，每文件不低于 {2} 路。",
+                UiText.Get("String.Code.MainWindow.xaml.8ae61ad1ce"),
                 DownloadConnBudget, sb, MinThreadsPerFile));
         }
 
@@ -1708,7 +1716,7 @@ namespace GeZi
                 if (string.IsNullOrEmpty(it.Url)) continue;
                 string destDir = Path.Combine(_settings.OutDir, it.RelDir ?? "");
                 try { Directory.CreateDirectory(destDir); }
-                catch (Exception ex) { Log("创建下载目录失败: " + destDir + " — " + ex.Message); continue; }
+                catch (Exception ex) { Log(UiText.Get("String.Code.MainWindow.xaml.c242bc1c5a") + destDir + " — " + ex.Message); continue; }
 
                 string dest = PathUtil.UniquePath(Path.Combine(destDir, PathUtil.SanitizeFileName(it.Name)));
                 var item = it;
@@ -1730,12 +1738,12 @@ namespace GeZi
                     },
                 });
             }
-            if (jobs.Count == 0) { Log("没有可下载的条目。"); return; }
+            if (jobs.Count == 0) { Log(UiText.Get("String.Code.MainWindow.xaml.16c761f565")); return; }
 
             LogAllocation(alloc);
             foreach (var job in jobs)
                 _tasks.Add(new TaskItem(job, job.Name));
-            Log("已加入下载队列: " + jobs.Count + " 个文件（复用已取链接）");
+            Log(UiText.Get("String.Code.MainWindow.xaml.d6c7de2a79") + jobs.Count + UiText.Get("String.Code.MainWindow.xaml.22394d60b0"));
             Tabs.SelectedIndex = 1;
             RunJobs(jobs);
         }
@@ -1744,12 +1752,12 @@ namespace GeZi
         {
             if (_client == null)
             {
-                Log("请先登录或解析分享");
+                Log(UiText.Get("String.Code.MainWindow.xaml.677003826a"));
                 return;
             }
             if (selected.Count == 0)
             {
-                Log("没有选中任何文件");
+                Log(UiText.Get("String.Code.MainWindow.xaml.d4f993d83e"));
                 return;
             }
 
@@ -1760,10 +1768,10 @@ namespace GeZi
                 var files = await CollectFilesAsync(selected, "", 0);
                 if (files.Count == 0)
                 {
-                    Log("没有要下载的文件");
+                    Log(UiText.Get("String.Code.MainWindow.xaml.181f9293c7"));
                     return;
                 }
-                Log("共展开 " + files.Count + " 个文件，正在取直链…");
+                Log(UiText.Get("String.Code.MainWindow.xaml.4ca4465346") + files.Count + UiText.Get("String.Code.MainWindow.xaml.bf719e6555"));
 
                 // ---- 文件数保护（对齐 Python 版 check_limit）----
                 // 必须在"取直链"之前拦下：一旦进入 GetDownloadItemsAsync，
@@ -1775,15 +1783,15 @@ namespace GeZi
                     // 理由与 Python 一致 —— 这个量级已经超出单次任务的合理范围，
                     // 分批做才是对的（用户可以少选一些重复操作）。
                     Log(string.Format(
-                        "文件数量过多（本次 {0} 个，单次上限 {1} 个），已中止。请减少选择后分批下载。",
+                        UiText.Get("String.Code.MainWindow.xaml.c3dd32b245"),
                         files.Count, MaxFiles));
                     AppDialog.Show(this,
                         string.Format(
-                            "本次共展开 {0} 个文件，超过单次处理上限 {1} 个。\n\n" +
-                            "请减少选择后分批下载（例如先选中一部分再点「下载选中」）。\n\n" +
-                            "这是为了避免一次性发出过多取链请求触发服务端风控。",
+                            UiText.Get("String.Code.MainWindow.xaml.002f0f5199") +
+                            UiText.Get("String.Code.MainWindow.xaml.29e75ab68b") +
+                            UiText.Get("String.Code.MainWindow.xaml.8b41c663c6"),
                             files.Count, MaxFiles),
-                        "文件数量过多", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        UiText.Get("String.Code.MainWindow.xaml.4e9768edc3"), MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
@@ -1793,14 +1801,14 @@ namespace GeZi
                     // 默认按钮设为"否"，避免连点两次回车就把大批任务放出去。
                     var ans = AppDialog.Show(this,
                         string.Format(
-                            "本次共展开 {0} 个文件，数量较多。\n\n" +
-                            "确认要一次性全部加入下载队列吗？",
+                            UiText.Get("String.Code.MainWindow.xaml.25e42d0b1a") +
+                            UiText.Get("String.Code.MainWindow.xaml.27838b72d9"),
                             files.Count),
-                        "确认下载", MessageBoxButton.YesNo, MessageBoxImage.Question,
+                        UiText.Get("String.Code.MainWindow.xaml.4b14690a1f"), MessageBoxButton.YesNo, MessageBoxImage.Question,
                         MessageBoxResult.No);
                     if (ans != MessageBoxResult.Yes)
                     {
-                        Log(string.Format("已取消（本次 {0} 个文件，用户未确认）", files.Count));
+                        Log(string.Format(UiText.Get("String.Code.MainWindow.xaml.237b7ebf0f"), files.Count));
                         return;
                     }
                 }
@@ -1816,7 +1824,7 @@ namespace GeZi
                     var it = items[i];
                     string destDir = Path.Combine(_settings.OutDir, it.RelDir ?? "");
                     try { Directory.CreateDirectory(destDir); }
-                    catch (Exception ex) { Log("创建下载目录失败: " + destDir + " — " + ex.Message); continue; }
+                    catch (Exception ex) { Log(UiText.Get("String.Code.MainWindow.xaml.c242bc1c5a") + destDir + " — " + ex.Message); continue; }
                     string dest = PathUtil.UniquePath(Path.Combine(destDir, PathUtil.SanitizeFileName(it.Name)));
                     var item = it;   // 闭包捕获：每次循环一个新变量，避免所有回调指向同一个
                     jobs.Add(new DownloadJob
@@ -1845,14 +1853,14 @@ namespace GeZi
                 }
                 if (jobs.Count == 0)
                 {
-                    Log("没有取得直链（分享者可能关闭直链或游客额度限制）");
+                    Log(UiText.Get("String.Code.MainWindow.xaml.bce2af25a2"));
                     return;
                 }
 
                 LogAllocation(alloc);
                 foreach (var job in jobs)
                     _tasks.Add(new TaskItem(job, job.Name));
-                Log("已加入下载队列: " + jobs.Count + " 个文件");
+                Log(UiText.Get("String.Code.MainWindow.xaml.d6c7de2a79") + jobs.Count + UiText.Get("String.Code.MainWindow.xaml.00c6621a62"));
                 Tabs.SelectedIndex = 1;
                 RunJobs(jobs);
             }
@@ -1911,14 +1919,14 @@ namespace GeZi
                 // 免转存则不碰网盘，直接从分享取链 —— 省空间、也不留中转垃圾。
                 if (forceNoSave)
                 {
-                    Log("按你的选择走「免转存」路径：不写入网盘，直接从分享取链。");
+                    Log(UiText.Get("String.Code.MainWindow.xaml.e0077659a9"));
                     return await NoSaveGetItemsAsync(files);
                 }
 
                 bool loggedIn = !string.IsNullOrEmpty(_settings.Cookie);
                 if (loggedIn)
                 {
-                    Log("已登录，走「转存→取直链」路径（更稳定）");
+                    Log(UiText.Get("String.Code.MainWindow.xaml.6d16fd2dd8"));
                     try
                     {
                         return await SaveAndGetItemsAsync(files);
@@ -1928,11 +1936,11 @@ namespace GeZi
                         // 移植自 Python 版：转存遇「网盘容量不足」时**自动降级**为免转存
                         // （不写入网盘、直接从分享取链），而不是让整批任务失败。
                         // 这是很常见的场景：网盘满了但仍想下载公开分享。
-                        Log("网盘容量不足，已自动改用「免转存」路径取直链（不写入网盘）。");
+                        Log(UiText.Get("String.Code.MainWindow.xaml.607912d522"));
                         return await NoSaveGetItemsAsync(files);
                     }
                 }
-                Log("未登录，走「免转存」路径（游客可能受额度限制）");
+                Log(UiText.Get("String.Code.MainWindow.xaml.9ddd6c60c8"));
                 return await NoSaveGetItemsAsync(files);
             }
             return await DriveGetItemsAsync(files);
@@ -1944,7 +1952,7 @@ namespace GeZi
         /// </summary>
         private sealed class CapacityDowngradeException : Exception
         {
-            public CapacityDowngradeException() : base("网盘容量不足") { }
+            public CapacityDowngradeException() : base(UiText.Get("String.Code.MainWindow.xaml.53cf02dae3")) { }
         }
 
         private async Task<List<DownloadItem>> NoSaveGetItemsAsync(List<ShareFileItem> files)
@@ -1961,7 +1969,7 @@ namespace GeZi
                         Fid = f.Fid, Token = f.Token, FromShare = true,
                     });
                 else
-                    Log("跳过（无直链）: " + f.Name);
+                    Log(UiText.Get("String.Code.MainWindow.xaml.1d4dbe86f1") + f.Name);
             }
             return items;
         }
@@ -1980,7 +1988,7 @@ namespace GeZi
                         Fid = f.Fid, FromShare = false,
                     });
                 else
-                    Log("无直链: " + f.Name);
+                    Log(UiText.Get("String.Code.MainWindow.xaml.3e0c997124") + f.Name);
             }
             return items;
         }
@@ -1991,7 +1999,7 @@ namespace GeZi
             string toFid = await EnsureFolderAsync(QuarkConstants.DefaultFolder);
             if (string.IsNullOrEmpty(toFid))
             {
-                Log("无法创建中转文件夹，转存失败");
+                Log(UiText.Get("String.Code.MainWindow.xaml.f4eee5ebb3"));
                 return items;
             }
 
@@ -2013,7 +2021,7 @@ namespace GeZi
                 }
                 catch (Exception ex)
                 {
-                    Log("转存失败: " + ex.Message);
+                    Log(UiText.Get("String.Code.MainWindow.xaml.046f027cb9") + ex.Message);
                     continue;
                 }
 
@@ -2044,7 +2052,7 @@ namespace GeZi
                                 Fid = newFids[j], FromShare = false,
                             });
                         else
-                            Log("无直链: " + batch[j].Name);
+                            Log(UiText.Get("String.Code.MainWindow.xaml.3e0c997124") + batch[j].Name);
                     }
                 }
                 lock (_cleanupLock)
@@ -2088,14 +2096,14 @@ namespace GeZi
                 else miss.Add(t);
             }
             if (cached > 0)
-                Log(string.Format("{0} 个文件命中直链缓存（10 分钟内有效），跳过取链。", cached));
+                Log(string.Format(UiText.Get("String.Code.MainWindow.xaml.30d83a341b"), cached));
             pending = miss;
 
             for (int round = 0; round < delays.Length && pending.Count > 0; round++)
             {
                 if (round > 0)
                 {
-                    Log(string.Format("{0} 个文件未返回直链，重试第 {1} 轮…", pending.Count, round));
+                    Log(string.Format(UiText.Get("String.Code.MainWindow.xaml.ad706d418e"), pending.Count, round));
                     await Task.Delay(delays[round]);
                 }
                 var next = new List<LinkTarget>();
@@ -2109,7 +2117,7 @@ namespace GeZi
                     if (err != null)
                     {
                         foreach (var t in batch)
-                            reason[t.Fid] = "接口报错: " + err;
+                            reason[t.Fid] = UiText.Get("String.Code.MainWindow.xaml.294e9ab9aa") + err;
                     }
 
                     var got = new Dictionary<string, string>();
@@ -2132,7 +2140,7 @@ namespace GeZi
                         else
                         {
                             if (err == null)
-                                reason[t.Fid] = "接口未返回该文件的 download_url";
+                                reason[t.Fid] = UiText.Get("String.Code.MainWindow.xaml.7b709eb01a");
                             next.Add(t);
                         }
                     }
@@ -2143,7 +2151,7 @@ namespace GeZi
             // 逐个单请求兜底：批量接口更容易被限流，剩少量文件时单独问成功率明显更高。
             if (pending.Count > 0 && pending.Count <= 30)
             {
-                Log(string.Format("对剩余 {0} 个文件逐个单独重试…", pending.Count));
+                Log(string.Format(UiText.Get("String.Code.MainWindow.xaml.c263da6f14"), pending.Count));
                 var still = new List<LinkTarget>();
                 foreach (var t in pending)
                 {
@@ -2158,13 +2166,13 @@ namespace GeZi
                         }
                         else
                         {
-                            reason[t.Fid] = "单个请求仍未返回 download_url";
+                            reason[t.Fid] = UiText.Get("String.Code.MainWindow.xaml.f8c6af2bc0");
                             still.Add(t);
                         }
                     }
                     catch (Exception ex)
                     {
-                        reason[t.Fid] = "单个请求报错: " + ex.Message;
+                        reason[t.Fid] = UiText.Get("String.Code.MainWindow.xaml.71786d7a56") + ex.Message;
                         still.Add(t);
                     }
                 }
@@ -2173,15 +2181,15 @@ namespace GeZi
 
             if (pending.Count > 0)
             {
-                Log(string.Format("仍有 {0} 个文件未取得直链，逐条原因:", pending.Count));
+                Log(string.Format(UiText.Get("String.Code.MainWindow.xaml.766d4006cb"), pending.Count));
                 foreach (var t in pending)
                 {
                     string r;
-                    Log(string.Format("  - {0}  ->  {1}", t.Name, reason.TryGetValue(t.Fid, out r) ? r : "未知"));
+                    Log(string.Format("  - {0}  ->  {1}", t.Name, reason.TryGetValue(t.Fid, out r) ? r : UiText.Get("String.Code.MainWindow.xaml.c224d7966b")));
                 }
-                Log("判断: 接口报错或 code 非 0 多为账号/权限/限流；"
-                    + "「无 download_url」多为会员额度或文件被风控；"
-                    + "分享直链还可能是分享者已关闭直链，或超出游客可获取的大小限制。");
+                Log(UiText.Get("String.Code.MainWindow.xaml.c408325d1d")
+                    + UiText.Get("String.Code.MainWindow.xaml.1815923aef")
+                    + UiText.Get("String.Code.MainWindow.xaml.7a05231073"));
             }
 
             // ---- 写回缓存：本次取到的链在 TTL 内可被后续操作复用 ----
@@ -2272,7 +2280,7 @@ namespace GeZi
             }
             catch (Exception ex)
             {
-                Log("中转文件夹处理失败: " + ex.Message);
+                Log(UiText.Get("String.Code.MainWindow.xaml.1093233e1d") + ex.Message);
                 return null;
             }
         }
@@ -2297,17 +2305,17 @@ namespace GeZi
             {
                 // 兜底：即便将来又有别的路径 Dispose 了 scheduler，也不该让用户
                 // 看到"已释放该信号量"这种无信息量的英文异常名。
-                Log("下载被中断：下载器被重新初始化（请重新开始该任务，已下载部分会续传）。" + ex.Message);
+                Log(UiText.Get("String.Code.MainWindow.xaml.6bedd49f1c") + ex.Message);
             }
             catch (Exception ex)
             {
-                Log("下载异常: " + ex.Message);
+                Log(UiText.Get("String.Code.MainWindow.xaml.1197f3ac26") + ex.Message);
             }
             finally
             {
                 _batchRunning = false;
             }
-            Log("本批下载结束");
+            Log(UiText.Get("String.Code.MainWindow.xaml.b53152fbee"));
 
             // 整批结束时在日志里汇总一次（原托盘气泡通知已随"后台功能"一起移除）。
             try
@@ -2319,11 +2327,11 @@ namespace GeZi
                 });
                 int fail = jobs.Count - ok;
                 if (ok > 0 && fail == 0)
-                    Log(string.Format("全部完成：{0} 个文件已下载完成。", ok));
+                    Log(string.Format(UiText.Get("String.Code.MainWindow.xaml.700f4bcb3c"), ok));
                 else if (ok > 0)
-                    Log(string.Format("下载结束：{0} 个完成，{1} 个未完成。", ok, fail));
+                    Log(string.Format(UiText.Get("String.Code.MainWindow.xaml.c319afe694"), ok, fail));
                 else if (fail > 0)
-                    Log(string.Format("下载失败：{0} 个文件未能完成，请查看任务列表。", fail));
+                    Log(string.Format(UiText.Get("String.Code.MainWindow.xaml.d4c9e0cadc"), fail));
             }
             catch { }
 
@@ -2342,7 +2350,7 @@ namespace GeZi
             }
             if (!_settings.AutoClean)
             {
-                Log("已保留网盘转存文件 " + fids.Count + " 个（可在设置里关闭自动清理）");
+                Log(UiText.Get("String.Code.MainWindow.xaml.57dbb2ba2c") + fids.Count + UiText.Get("String.Code.MainWindow.xaml.aafd82b9fe"));
                 return;
             }
             if (_client == null)
@@ -2351,11 +2359,11 @@ namespace GeZi
             {
                 await _client.DeleteAsync(fids);
                 await _client.PurgeRecycleAsync(fids);
-                Log("已清理网盘转存文件 " + fids.Count + " 个");
+                Log(UiText.Get("String.Code.MainWindow.xaml.fe7bf0e283") + fids.Count + UiText.Get("String.Code.MainWindow.xaml.082b6ba00a"));
             }
             catch (Exception ex)
             {
-                Log("清理转存文件失败（不影响下载）: " + ex.Message);
+                Log(UiText.Get("String.Code.MainWindow.xaml.79512fc646") + ex.Message);
             }
         }
 
@@ -2380,7 +2388,7 @@ namespace GeZi
             item.Error = u.Error ?? "";
             if ((u.State == JobState.Failed || u.State == JobState.Cancelled) && !string.IsNullOrEmpty(u.Error))
             {
-                Log("[" + item.Name + "] " + (u.State == JobState.Failed ? "失败" : "取消") + ": " + u.Error);
+                Log("[" + item.Name + "] " + (u.State == JobState.Failed ? UiText.Get("String.Code.MainWindow.xaml.73cf34cd9b") : UiText.Get("String.Code.MainWindow.xaml.06dbb49961")) + ": " + u.Error);
             }
             if (u.Progress != null)
             {
@@ -2395,8 +2403,8 @@ namespace GeZi
                 && (u.State == JobState.Completed || u.State == JobState.Failed || u.State == JobState.Cancelled))
             {
                 item.HistoryRecorded = true;
-                string status = u.State == JobState.Completed ? "完成"
-                    : u.State == JobState.Failed ? "失败" : "已取消";
+                string status = u.State == JobState.Completed ? UiText.Get("String.Code.MainWindow.xaml.bf394f467c")
+                    : u.State == JobState.Failed ? UiText.Get("String.Code.MainWindow.xaml.73cf34cd9b") : UiText.Get("String.Code.MainWindow.xaml.6ba7eb982c");
                 long sizeBytes = item.Total > 0 ? item.Total : item.Done;
                 HistoryStore.AddHistory(item.Name, Util.FormatSize(sizeBytes), item.Job.Dest, status);
             }
@@ -2522,20 +2530,20 @@ namespace GeZi
             PauseAllBtn.IsEnabled = anyRunning || anyPaused;
             if (anyRunning)
             {
-                PauseAllBtn.Content = BuildToolIconText("IconPause", "暂停全部", 2.0);
-                PauseAllBtn.ToolTip = "暂停所有正在下载 / 排队的任务";
+                PauseAllBtn.Content = BuildToolIconText("IconPause", UiText.Get("String.Code.MainWindow.xaml.e19da1d1e5"), 2.0);
+                PauseAllBtn.ToolTip = UiText.Get("String.Code.MainWindow.xaml.c9831d53b8");
             }
             else if (anyPaused)
             {
-                PauseAllBtn.Content = BuildToolIconText("IconPlay", "恢复全部", 1.6);
-                PauseAllBtn.ToolTip = "恢复所有已暂停的任务";
+                PauseAllBtn.Content = BuildToolIconText("IconPlay", UiText.Get("String.Code.MainWindow.xaml.c840f27b18"), 1.6);
+                PauseAllBtn.ToolTip = UiText.Get("String.Code.MainWindow.xaml.b26134d99e");
             }
             else
             {
                 // 没有任务时按钮置灰。文案固定显示「暂停全部」——
                 // 显示「恢复全部」会让人以为"有东西被暂停了、可以恢复"。
-                PauseAllBtn.Content = BuildToolIconText("IconPause", "暂停全部", 2.0);
-                PauseAllBtn.ToolTip = "当前没有任务";
+                PauseAllBtn.Content = BuildToolIconText("IconPause", UiText.Get("String.Code.MainWindow.xaml.e19da1d1e5"), 2.0);
+                PauseAllBtn.ToolTip = UiText.Get("String.Code.MainWindow.xaml.a081ac98bd");
             }
         }
 
@@ -2678,11 +2686,11 @@ namespace GeZi
                 //    没有这个标志的话下一帧就会把 Paused 覆盖掉（图标会来回跳）。
                 t.PauseRequested = true;
                 t.State = JobState.Paused;
-                Log("已暂停: " + t.Name);
+                Log(UiText.Get("String.Code.MainWindow.xaml.e7bd9dd002") + t.Name);
             }
             else
             {
-                Log("该任务当前状态不可暂停（" + t.StatusText + "）");
+                Log(UiText.Get("String.Code.MainWindow.xaml.33bc84567f") + t.StatusText + "）");
             }
         }
 
@@ -2695,11 +2703,11 @@ namespace GeZi
                 t.PauseRequested = false;   // 先清标志，否则会继续忽略核心的 Downloading
                 t.Job.ResumeJob();
                 t.State = JobState.Downloading;
-                Log("已恢复: " + t.Name);
+                Log(UiText.Get("String.Code.MainWindow.xaml.0407183364") + t.Name);
             }
             else
             {
-                Log("该任务当前状态不可恢复（" + t.StatusText + "）");
+                Log(UiText.Get("String.Code.MainWindow.xaml.46c23b67be") + t.StatusText + "）");
             }
         }
 
@@ -2729,12 +2737,12 @@ namespace GeZi
                 //  磁盘上就一直躺着（用户机器上实测残留 59 MB）。
                 //  → 按用户选定的方案：**取消 = 彻底放弃，立刻清理本地残留**。
                 //    想保留进度以后再续传，请用「暂停」。
-                Log("已请求取消: " + t.Name + "（将清理本地分片与未下完的部分）");
+                Log(UiText.Get("String.Code.MainWindow.xaml.869fe4c9a0") + t.Name + UiText.Get("String.Code.MainWindow.xaml.fd5c10ddad"));
                 CleanupCanceledTaskAsync(t.Job.Dest, t.Name);
             }
             else
             {
-                Log("该任务当前状态不可取消（" + t.StatusText + "）");
+                Log(UiText.Get("String.Code.MainWindow.xaml.8553f69bd3") + t.StatusText + "）");
             }
         }
 
@@ -2760,7 +2768,7 @@ namespace GeZi
 
             // ⚠️ AllPartsRoots() 要读 _settings，必须在 UI 线程先取好再进后台线程。
             var roots = AllPartsRoots();
-            string name = taskName ?? "任务";
+            string name = taskName ?? UiText.Get("String.Code.MainWindow.xaml.4fb8d62659");
 
             var th = new Thread(() =>
             {
@@ -2797,10 +2805,10 @@ namespace GeZi
                 try
                 {
                     LogFromWorker(ok
-                        ? string.Format("已清理「{0}」的本地残留（释放 {1}）。",
+                        ? string.Format(UiText.Get("String.Code.MainWindow.xaml.8ce5672adb"),
                             name, Util.FormatSize(freed))
-                        : string.Format("「{0}」的本地残留有文件正被占用，未能全部删除；"
-                            + "下次启动的自动清扫会兜底回收。", name));
+                        : string.Format(UiText.Get("String.Code.MainWindow.xaml.1eb6b19a91")
+                            + UiText.Get("String.Code.MainWindow.xaml.0f97d6c6b3"), name));
                 }
                 catch { }
             })
@@ -2846,11 +2854,11 @@ namespace GeZi
             {
                 var ans = AppDialog.Show(this,
                     (running.Count == 1
-                        ? "任务「" + running[0].Name + "」还在进行中。\n\n"
-                        : "选中的 " + running.Count + " 个任务还在进行中。\n\n")
-                    + "仅移除记录不会停止后台下载，文件仍会继续写入。\n"
-                    + "确定要先取消并移除记录吗？",
-                    "仅移除记录", MessageBoxButton.YesNo, MessageBoxImage.Question,
+                        ? UiText.Get("String.Code.MainWindow.xaml.a9e941a657") + running[0].Name + UiText.Get("String.Code.MainWindow.xaml.b4dd620840")
+                        : UiText.Get("String.Code.MainWindow.xaml.39b1a8cbd2") + running.Count + UiText.Get("String.Code.MainWindow.xaml.b7859b9a81"))
+                    + UiText.Get("String.Code.MainWindow.xaml.28e6afc191")
+                    + UiText.Get("String.Code.MainWindow.xaml.446272dda2"),
+                    UiText.Get("String.Code.MainWindow.xaml.5e26a44145"), MessageBoxButton.YesNo, MessageBoxImage.Question,
                     MessageBoxResult.No);
                 if (ans != MessageBoxResult.Yes)
                     return;
@@ -2886,7 +2894,7 @@ namespace GeZi
                 t.State = JobState.Cancelling;
             }
             _tasks.Remove(t);
-            Log("已移除记录（本地文件保留）: " + t.Name);
+            Log(UiText.Get("String.Code.MainWindow.xaml.c390218246") + t.Name);
         }
 
         /// <summary>
@@ -2923,10 +2931,10 @@ namespace GeZi
                 : string.Join("\n", list.Take(8).Select(x => "· " + x.Name))
                   + (list.Count > 8 ? "\n…" : "");
             var ans = AppDialog.Show(this,
-                string.Format("确定删除{0}本地文件吗？\n\n{1}\n\n" +
-                              "（正在下载的会先取消；分片与续传元数据一并清理，不可撤销）",
-                    list.Count == 1 ? "以下" : list.Count + " 个任务的", body),
-                "删除本地文件", MessageBoxButton.YesNo, MessageBoxImage.Warning,
+                string.Format(UiText.Get("String.Code.MainWindow.xaml.f3355c1f17") +
+                              UiText.Get("String.Code.MainWindow.xaml.cbcec6d831"),
+                    list.Count == 1 ? UiText.Get("String.Code.MainWindow.xaml.3c43af4536") : list.Count + UiText.Get("String.Code.MainWindow.xaml.6233815247"), body),
+                UiText.Get("String.Code.MainWindow.xaml.64a72c90cc"), MessageBoxButton.YesNo, MessageBoxImage.Warning,
                 MessageBoxResult.No);
             if (ans != MessageBoxResult.Yes)
                 return;
@@ -2997,7 +3005,7 @@ namespace GeZi
                 if (NativeMethods.MoveFileEx(dest, null, NativeMethods.MOVEFILE_DELAY_UNTIL_REBOOT))
                     delayed++;
                 else
-                    failed.Add(dest + " — 被其他程序占用，且登记重启删除失败（可能需要管理员权限）");
+                    failed.Add(dest + UiText.Get("String.Code.MainWindow.xaml.f811de90cd"));
             }
             catch (Exception ex) { failed.Add(dest + " — " + ex.Message); }
 
@@ -3005,14 +3013,14 @@ namespace GeZi
             // 出问题时才追加说明 —— 那种情况必须让用户看到。
             if (failed.Count == 0 && delayed == 0)
             {
-                LogFromWorker("已成功删除本地文件「" + name + "」");
+                LogFromWorker(UiText.Get("String.Code.MainWindow.xaml.fe96425842") + name + "」");
             }
             else
             {
-                LogFromWorker(string.Format("已删除本地文件「{0}」{1}{2}",
+                LogFromWorker(string.Format(UiText.Get("String.Code.MainWindow.xaml.649456fe9d"),
                     name,
-                    delayed > 0 ? "（" + delayed + " 项正被占用，已登记为重启后删除）" : "",
-                    failed.Count > 0 ? "，" + failed.Count + " 项失败：" + string.Join("；", failed) : ""));
+                    delayed > 0 ? "（" + delayed + UiText.Get("String.Code.MainWindow.xaml.b12695833b") : "",
+                    failed.Count > 0 ? "，" + failed.Count + UiText.Get("String.Code.MainWindow.xaml.23d25b0e0a") + string.Join("；", failed) : ""));
             }
         }
 
@@ -3057,7 +3065,7 @@ namespace GeZi
 
             if (!System.IO.File.Exists(dest))
             {
-                Log("文件还没写盘，暂时打不开：" + dest);
+                Log(UiText.Get("String.Code.MainWindow.xaml.e79b3ddcdf") + dest);
                 return;
             }
 
@@ -3072,13 +3080,13 @@ namespace GeZi
             try { curSize = new System.IO.FileInfo(dest).Length; } catch { }
             if (curSize <= 0)
             {
-                Log("这个文件目前是 0 字节，还没到能播放的程度：" + dest);
+                Log(UiText.Get("String.Code.MainWindow.xaml.8e523f4234") + dest);
                 AppDialog.Show(this,
-                    "这个文件现在还是 0 字节，播放器打不开它。\n\n"
-                    + "「独立分片（边下边播）」模式下，目标文件是从头按顺序拼出来的：\n"
-                    + "前面的分片还没下到时，文件就是空的。\n"
-                    + "等进度涨起来再点「播放」就可以看了。",
-                    "暂时还播不了",
+                    UiText.Get("String.Code.MainWindow.xaml.ff3a04d02b")
+                    + UiText.Get("String.Code.MainWindow.xaml.f7b3fc319b")
+                    + UiText.Get("String.Code.MainWindow.xaml.6b4827c0db")
+                    + UiText.Get("String.Code.MainWindow.xaml.5f0ab988c5"),
+                    UiText.Get("String.Code.MainWindow.xaml.f192409c16"),
                     System.Windows.MessageBoxButton.OK,
                     System.Windows.MessageBoxImage.Information);
                 return;
@@ -3095,9 +3103,9 @@ namespace GeZi
             if (item.State != JobState.Completed)
             {
                 Log(string.Format(
-                    "提示: 该文件还没下完（当前 {0} / {1}）。独立分片模式下目标文件是按顺序"
-                    + "拼出来的前缀，若视频索引在文件末尾，播放器会提示「无法播放此文件」—— "
-                    + "这属于正常现象，等进度更多（或下完）再试即可。",
+                    UiText.Get("String.Code.MainWindow.xaml.eb4b94ec62")
+                    + UiText.Get("String.Code.MainWindow.xaml.a81bc27918")
+                    + UiText.Get("String.Code.MainWindow.xaml.f36a5b4e0b"),
                     Util.FormatSize(curSize), Util.FormatSize(item.Total)));
             }
 
@@ -3109,15 +3117,15 @@ namespace GeZi
                 // ShellExecuteEx 依赖关联，而关联层在某些机器上坏掉。
                 if (!ShellLaunch.OpenFile(dest))
                 {
-                    Log("打开失败（文件当前 " + Util.FormatSize(curSize) + "），请手动到下载目录查看：" + dest);
+                    Log(UiText.Get("String.Code.MainWindow.xaml.a99ddb3667") + Util.FormatSize(curSize) + UiText.Get("String.Code.MainWindow.xaml.caebd06d39") + dest);
                     AppDialog.Show(this,
-                        "无法打开文件，请手动到下载目录查看。\n\n" + dest,
-                        "需要手动打开",
+                        UiText.Get("String.Code.MainWindow.xaml.bd0cff180c") + dest,
+                        UiText.Get("String.Code.MainWindow.xaml.7c81a46ea2"),
                         System.Windows.MessageBoxButton.OK,
                         System.Windows.MessageBoxImage.Information);
                 }
             }
-            catch (Exception ex) { Log("打开失败: " + ex.Message); }
+            catch (Exception ex) { Log(UiText.Get("String.Code.MainWindow.xaml.c3c37bc56b") + ex.Message); }
         }
 
         /// <summary>「定位」：在资源管理器中**选中**该文件；还没写盘就打开所在目录。</summary>
@@ -3132,7 +3140,7 @@ namespace GeZi
             // 后者会另起 explorer 进程，用户实测报过 0xc0000142（进程启动即崩）。
             // 详见 ShellReveal 的注释。
             if (!ShellReveal.Reveal(dest))
-                Log("定位失败：找不到该文件或所在目录（" + dest + "）");
+                Log(UiText.Get("String.Code.MainWindow.xaml.6a73cef31b") + dest + "）");
         }
 
         // ---------------- 下载历史 ----------------
@@ -3146,7 +3154,7 @@ namespace GeZi
         {
             var win = new Window
             {
-                Title = "下载历史",
+                Title = UiText.Get("String.Code.MainWindow.xaml.ad36711b51"),
                 Owner = this,
             };
             DialogChrome.StyleWindow(win, 760, 520);
@@ -3156,7 +3164,7 @@ namespace GeZi
             grid.RowDefinitions.Add(new System.Windows.Controls.RowDefinition { Height = GridLength.Auto });
             grid.RowDefinitions.Add(new System.Windows.Controls.RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
-            var title = DialogChrome.PageTitle("下载历史");
+            var title = DialogChrome.PageTitle(UiText.Get("String.Code.MainWindow.xaml.ad36711b51"));
             System.Windows.Controls.Grid.SetRow(title, 0);
             grid.Children.Add(title);
 
@@ -3165,9 +3173,9 @@ namespace GeZi
                 Orientation = System.Windows.Controls.Orientation.Horizontal,
                 Margin = new Thickness(0, 8, 0, 12),
             };
-            var openBtn = DialogChrome.SecondaryButton("打开");
-            var locateBtn = DialogChrome.SecondaryButton("定位");
-            var clearBtn = DialogChrome.DangerButton("清空记录");
+            var openBtn = DialogChrome.SecondaryButton(UiText.Get("String.Code.MainWindow.xaml.f109b78a85"));
+            var locateBtn = DialogChrome.SecondaryButton(UiText.Get("String.Code.MainWindow.xaml.cf4cb45904"));
+            var clearBtn = DialogChrome.DangerButton(UiText.Get("String.Code.MainWindow.xaml.de2f947814"));
             bar.Children.Add(openBtn);
             locateBtn.Margin = new Thickness(8, 0, 0, 0);
             bar.Children.Add(locateBtn);
@@ -3198,7 +3206,7 @@ namespace GeZi
                         r.Time ?? "", r.Status ?? "", r.Size ?? "", r.Name ?? ""));
                 }
                 if (display.Count == 0)
-                    display.Add("（暂无历史记录）");
+                    display.Add(UiText.Get("String.Code.MainWindow.xaml.438ce60c8b"));
             };
             reload();
 
@@ -3211,27 +3219,27 @@ namespace GeZi
             openBtn.Click += (s2, e2) =>
             {
                 var r = Sel();
-                if (r == null || string.IsNullOrEmpty(r.Path)) { Log("请先选中一条记录"); return; }
-                if (!File.Exists(r.Path)) { Log("文件已不存在：" + r.Path); return; }
+                if (r == null || string.IsNullOrEmpty(r.Path)) { Log(UiText.Get("String.Code.MainWindow.xaml.d8461b9b33")); return; }
+                if (!File.Exists(r.Path)) { Log(UiText.Get("String.Code.MainWindow.xaml.9116f01cef") + r.Path); return; }
                 OpenTaskFileByPath(r.Path);
             };
             locateBtn.Click += (s2, e2) =>
             {
                 var r = Sel();
-                if (r == null || string.IsNullOrEmpty(r.Path)) { Log("请先选中一条记录"); return; }
+                if (r == null || string.IsNullOrEmpty(r.Path)) { Log(UiText.Get("String.Code.MainWindow.xaml.d8461b9b33")); return; }
                 if (!ShellReveal.Reveal(r.Path))
-                    Log("定位失败：" + r.Path);
+                    Log(UiText.Get("String.Code.MainWindow.xaml.fadffa076f") + r.Path);
             };
             clearBtn.Click += (s2, e2) =>
             {
                 var ans = AppDialog.Show(win,
-                    "确定清空全部下载记录吗？（不会删除磁盘上的文件）",
-                    "清空记录", MessageBoxButton.YesNo, MessageBoxImage.Question,
+                    UiText.Get("String.Code.MainWindow.xaml.a4cacbc31b"),
+                    UiText.Get("String.Code.MainWindow.xaml.de2f947814"), MessageBoxButton.YesNo, MessageBoxImage.Question,
                     MessageBoxResult.No);
                 if (ans != MessageBoxResult.Yes) return;
                 HistoryStore.ClearHistory();
                 reload();
-                Log("已清空下载历史");
+                Log(UiText.Get("String.Code.MainWindow.xaml.a91c04b149"));
             };
 
             win.Content = grid;
@@ -3242,7 +3250,7 @@ namespace GeZi
         private void OpenTaskFileByPath(string path)
         {
             if (!ShellLaunch.OpenFile(path))
-                Log("打开失败，请手动到下载目录查看：" + path);
+                Log(UiText.Get("String.Code.MainWindow.xaml.6a7de7c5c6") + path);
         }
 
         // ---------------- 启动时的未完成任务提示 ----------------
@@ -3267,7 +3275,7 @@ namespace GeZi
             try
             {
                 _diagLast = snap;
-                string key = string.IsNullOrEmpty(snap.Name) ? "(未命名)" : snap.Name;
+                string key = string.IsNullOrEmpty(snap.Name) ? UiText.Get("String.Code.MainWindow.xaml.2c4b196008") : snap.Name;
                 _diagLatest[key] = snap;
             }
             catch { }
@@ -3290,7 +3298,7 @@ namespace GeZi
             var win = new Window
             {
                 Owner = this,
-                Title = "下载诊断",
+                Title = UiText.Get("String.Code.MainWindow.xaml.90da980d6f"),
             };
             DialogChrome.StyleWindow(win, 1020, 560);
 
@@ -3300,16 +3308,16 @@ namespace GeZi
             root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-            var title = DialogChrome.PageTitle("下载诊断");
+            var title = DialogChrome.PageTitle(UiText.Get("String.Code.MainWindow.xaml.90da980d6f"));
             Grid.SetRow(title, 0);
             root.Children.Add(title);
 
             var head = DialogChrome.Hint(
-                "指标由下载器每 5 秒上报一次。判断口径：\n"
-                + "  · 活跃连接接近「并发上限」而速度低 → 服务端限速（客户端无解）\n"
-                + "  · 活跃连接明显偏低 → 客户端没把连接发满（可调高线程数）\n"
-                + "  · 对端 IP 只有 1 个 → DNS 没分散，慢连接抢占重连仍是同节点\n"
-                + "  · 已抢占次数持续增长 → 存在长尾慢连接，抢占正在起作用",
+                UiText.Get("String.Code.MainWindow.xaml.081dda98cd")
+                + UiText.Get("String.Code.MainWindow.xaml.61fdd78045")
+                + UiText.Get("String.Code.MainWindow.xaml.cd8bf08ccc")
+                + UiText.Get("String.Code.MainWindow.xaml.6db87e476f")
+                + UiText.Get("String.Code.MainWindow.xaml.b1829a5ec0"),
                 0, 12);
             Grid.SetRow(head, 1);
             root.Children.Add(head);
@@ -3345,15 +3353,15 @@ namespace GeZi
             //   ① 列权重提到 3*，并从「进度」「分片」里挤一点宽度出来；
             //   ② 单元格允许**换行**（行高会自动长高），再挂 ToolTip 兜底。
             // ⚠️ DataGridTextColumn 的换行/提示要靠 ElementStyle 设，直接给 Column 设没用。
-            grid.Columns.Add(new DataGridTextColumn { Header = "任务", Binding = new System.Windows.Data.Binding("Name"), Width = new DataGridLength(2, DataGridLengthUnitType.Star) });
-            grid.Columns.Add(new DataGridTextColumn { Header = "速度", Binding = new System.Windows.Data.Binding("Speed"), Width = new DataGridLength(84) });
-            grid.Columns.Add(new DataGridTextColumn { Header = "活跃/上限", Binding = new System.Windows.Data.Binding("Conns"), Width = new DataGridLength(84) });
-            grid.Columns.Add(new DataGridTextColumn { Header = "分片", Binding = new System.Windows.Data.Binding("Parts"), Width = new DataGridLength(84) });
-            grid.Columns.Add(new DataGridTextColumn { Header = "进度", Binding = new System.Windows.Data.Binding("Progress"), Width = new DataGridLength(120) });
-            grid.Columns.Add(new DataGridTextColumn { Header = "抢占", Binding = new System.Windows.Data.Binding("Preempt"), Width = new DataGridLength(56) });
+            grid.Columns.Add(new DataGridTextColumn { Header = UiText.Get("String.Code.MainWindow.xaml.4fb8d62659"), Binding = new System.Windows.Data.Binding("Name"), Width = new DataGridLength(2, DataGridLengthUnitType.Star) });
+            grid.Columns.Add(new DataGridTextColumn { Header = UiText.Get("String.Code.MainWindow.xaml.6ce37ae25e"), Binding = new System.Windows.Data.Binding("Speed"), Width = new DataGridLength(84) });
+            grid.Columns.Add(new DataGridTextColumn { Header = UiText.Get("String.Code.MainWindow.xaml.cf7beab173"), Binding = new System.Windows.Data.Binding("Conns"), Width = new DataGridLength(84) });
+            grid.Columns.Add(new DataGridTextColumn { Header = UiText.Get("String.Code.MainWindow.xaml.fe53766e6e"), Binding = new System.Windows.Data.Binding("Parts"), Width = new DataGridLength(84) });
+            grid.Columns.Add(new DataGridTextColumn { Header = UiText.Get("String.Code.MainWindow.xaml.94988c2510"), Binding = new System.Windows.Data.Binding("Progress"), Width = new DataGridLength(120) });
+            grid.Columns.Add(new DataGridTextColumn { Header = UiText.Get("String.Code.MainWindow.xaml.f931f5f306"), Binding = new System.Windows.Data.Binding("Preempt"), Width = new DataGridLength(56) });
             var ipCol = new DataGridTextColumn
             {
-                Header = "对端 IP",
+                Header = UiText.Get("String.Code.MainWindow.xaml.501d946d39"),
                 Binding = new System.Windows.Data.Binding("PeerIps"),
                 Width = new DataGridLength(3, DataGridLengthUnitType.Star),
             };
@@ -3371,9 +3379,9 @@ namespace GeZi
             Grid.SetRow(gridCard, 2);
             root.Children.Add(gridCard);
 
-            var copyBtn = DialogChrome.SecondaryButton("复制诊断文本");
-            var clearBtn = DialogChrome.SecondaryButton("清空");
-            var closeBtn = DialogChrome.SecondaryButton("关闭");
+            var copyBtn = DialogChrome.SecondaryButton(UiText.Get("String.Code.MainWindow.xaml.6e60d8f388"));
+            var clearBtn = DialogChrome.SecondaryButton(UiText.Get("String.Code.MainWindow.xaml.6888d59833"));
+            var closeBtn = DialogChrome.SecondaryButton(UiText.Get("String.Code.MainWindow.xaml.09614cef6c"));
             var btns = DialogChrome.ButtonRow(copyBtn, clearBtn, closeBtn);
             btns.Margin = new Thickness(0, 14, 0, 0);
             Grid.SetRow(btns, 3);
@@ -3396,11 +3404,11 @@ namespace GeZi
                 try
                 {
                     var sb = new StringBuilder();
-                    sb.AppendLine("文件\t速度\t活跃/上限\t分片\t进度\t抢占\t对端IP");
+                    sb.AppendLine(UiText.Get("String.Code.MainWindow.xaml.ff31994d7b"));
                     foreach (var r in rows)
                         sb.AppendLine(string.Join("\t", r.Name, r.Speed, r.Conns, r.Parts, r.Progress, r.Preempt, r.PeerIps));
                     Clipboard.SetText(sb.ToString());
-                    Log("已复制诊断文本到剪贴板。");
+                    Log(UiText.Get("String.Code.MainWindow.xaml.f10dfea916"));
                 }
                 catch { }
             };
@@ -3486,7 +3494,7 @@ namespace GeZi
         private void StartPartsSweep()
         {
             var roots = AllPartsRoots();
-            string rootSnapshot = roots.Count == 0 ? "（无自定义根目录）" : string.Join("；", roots);
+            string rootSnapshot = roots.Count == 0 ? UiText.Get("String.Code.MainWindow.xaml.011ebea1d9") : string.Join("；", roots);
 
             var t = new Thread(() =>
             {
@@ -3499,18 +3507,18 @@ namespace GeZi
                     if (r.AnythingDone)
                     {
                         LogFromWorker(string.Format(
-                            "分片清扫：回收了 {0} 个过期分片（{1}），跳过 {2} 个被占用的文件。",
+                            UiText.Get("String.Code.MainWindow.xaml.d9518b8c1b"),
                             r.Removed, Util.FormatSize(r.FreedBytes), r.Skipped));
                     }
                     else if (r.Skipped > 0)
                     {
                         LogFromWorker(string.Format(
-                            "分片清扫：{0} 个过期分片因被占用而跳过（下次启动会重试）。", r.Skipped));
+                            UiText.Get("String.Code.MainWindow.xaml.55fabe6673"), r.Skipped));
                     }
                 }
                 catch (Exception ex)
                 {
-                    try { LogFromWorker("分片清扫失败（已忽略）: " + ex.Message); } catch { }
+                    try { LogFromWorker(UiText.Get("String.Code.MainWindow.xaml.4ba4f8c5f7") + ex.Message); } catch { }
                 }
             })
             {
@@ -3519,7 +3527,7 @@ namespace GeZi
             };
             t.Start();
 
-            Log("已启动分片自动清扫（阈值 " + PartsSweeper.DefaultMaxAgeDays + " 天）。扫描范围: " + rootSnapshot);
+            Log(UiText.Get("String.Code.MainWindow.xaml.db6c81dfcf") + PartsSweeper.DefaultMaxAgeDays + UiText.Get("String.Code.MainWindow.xaml.ed7a074fa4") + rootSnapshot);
         }
 
         /// <summary>
@@ -3564,7 +3572,7 @@ namespace GeZi
             var dlg = new Window
             {
                 Owner = this,
-                Title = "未完成的任务",
+                Title = UiText.Get("String.Code.MainWindow.xaml.213ae70276"),
                 ResizeMode = ResizeMode.CanResize,
             };
             DialogChrome.StyleWindow(dlg, 600, 480);
@@ -3575,13 +3583,13 @@ namespace GeZi
             root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-            var title = DialogChrome.PageTitle("未完成的任务");
+            var title = DialogChrome.PageTitle(UiText.Get("String.Code.MainWindow.xaml.213ae70276"));
             Grid.SetRow(title, 0);
             root.Children.Add(title);
 
             var head = DialogChrome.Hint(string.Format(
-                "上次有 {0} 个任务未完成，其中 {1} 个可以继续下载。\n"
-                + "勾选后点「继续下载」会重新获取直链并接着已下载的部分继续（不会重下）。",
+                UiText.Get("String.Code.MainWindow.xaml.dcb2ea92ad")
+                + UiText.Get("String.Code.MainWindow.xaml.ad354356d2"),
                 all.Count, resumable.Count), 0, 12);
             Grid.SetRow(head, 1);
             root.Children.Add(head);
@@ -3595,10 +3603,10 @@ namespace GeZi
             var wrappers = new List<PendingRow>();
             foreach (var p in all) wrappers.Add(new PendingRow(p));
 
-            var selAll = DialogChrome.SecondaryButton("全选可续传");
-            var resumeBtn = DialogChrome.PrimaryButton("继续下载");
-            var discardBtn = DialogChrome.DangerButton("丢弃这些任务");
-            var closeBtn = DialogChrome.SecondaryButton("稍后再说");
+            var selAll = DialogChrome.SecondaryButton(UiText.Get("String.Code.MainWindow.xaml.aa7ec03e33"));
+            var resumeBtn = DialogChrome.PrimaryButton(UiText.Get("String.Code.MainWindow.xaml.a65161f6a2"));
+            var discardBtn = DialogChrome.DangerButton(UiText.Get("String.Code.MainWindow.xaml.86446cd745"));
+            var closeBtn = DialogChrome.SecondaryButton(UiText.Get("String.Code.MainWindow.xaml.df39795da2"));
 
             // 用 ListBox + 复选（ItemsSource 为包装对象，便于双向绑定 IsChecked）
             var box = new ListBox
@@ -3707,17 +3715,17 @@ namespace GeZi
                 HistoryStore.ClearPending();
                 _pendingSig = null;
                 Log(failed == 0
-                    ? string.Format("已丢弃 {0} 个未完成任务，本地残留已清理（释放 {1}），网盘文件保留。",
+                    ? string.Format(UiText.Get("String.Code.MainWindow.xaml.78374e5f2f"),
                         n, Util.FormatSize(freed))
-                    : string.Format("已丢弃 {0} 个未完成任务（释放 {1}）；其中 {2} 个有文件正被占用未能删除，"
-                        + "下次启动的自动清扫会兜底回收。网盘文件保留。",
+                    : string.Format(UiText.Get("String.Code.MainWindow.xaml.69f7ff8da1")
+                        + UiText.Get("String.Code.MainWindow.xaml.8ae7a40aa7"),
                         n + failed, Util.FormatSize(freed), failed));
                 return;
             }
 
             if (!doResume)
             {
-                Log("未完成的任务已保留记录，稍后可从下载页重新下载（分片在，会自然续传）。");
+                Log(UiText.Get("String.Code.MainWindow.xaml.e62c266ea1"));
                 return;
             }
 
@@ -3725,24 +3733,24 @@ namespace GeZi
                                  .Select(w => w.Task).ToList();
             if (chosen.Count == 0)
             {
-                Log("没有勾选任何可续传的任务。");
+                Log(UiText.Get("String.Code.MainWindow.xaml.212f3c577f"));
                 return;
             }
 
             if (chosen.Count > ConfirmThreshold)
             {
                 var ans = AppDialog.Show(this,
-                    string.Format("将续传 {0} 个任务，会一次性发出相应数量的取链请求。\n\n确认继续吗？",
+                    string.Format(UiText.Get("String.Code.MainWindow.xaml.42e324c8d4"),
                         chosen.Count),
-                    "确认续传", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
+                    UiText.Get("String.Code.MainWindow.xaml.e75e6de7ca"), MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
                 if (ans != MessageBoxResult.Yes)
                 {
-                    Log("已取消批量续传。");
+                    Log(UiText.Get("String.Code.MainWindow.xaml.b4918ef6a7"));
                     return;
                 }
             }
 
-            Log(string.Format("开始续传 {0} 个任务…", chosen.Count));
+            Log(string.Format(UiText.Get("String.Code.MainWindow.xaml.84cd8044d1"), chosen.Count));
             Tabs.SelectedIndex = 1;
             _ = ResumePendingBatchAsync(chosen);
         }
@@ -3802,8 +3810,8 @@ namespace GeZi
                 // 现在前缀去掉：能不能续传看**复选框是否可用**（不可续传的复选框置灰），
                 // 以及后面那句说明；勾选与否完全由用户点复选框决定。
                 string size = (t != null && t.Size > 0) ? "   " + Util.FormatSize(t.Size) : "";
-                string why = CanResume ? "" : "   （信息不全，需重新下载）";
-                Display = (t?.Name ?? "(未知)") + size + why;
+                string why = CanResume ? "" : UiText.Get("String.Code.MainWindow.xaml.185f8102b9");
+                Display = (t?.Name ?? UiText.Get("String.Code.MainWindow.xaml.52f59a2ef3")) + size + why;
             }
 
             public event PropertyChangedEventHandler PropertyChanged;
@@ -3846,7 +3854,7 @@ namespace GeZi
         {
             if (_client != null) return _client;
 
-            Log("续传需要登录态，正在等待自动登录完成…");
+            Log(UiText.Get("String.Code.MainWindow.xaml.f9c0f26c83"));
             var t = _startupLoginTask;
             if (t != null)
             {
@@ -3855,7 +3863,7 @@ namespace GeZi
             }
             if (_client != null)
             {
-                Log("自动登录已完成，开始续传。");
+                Log(UiText.Get("String.Code.MainWindow.xaml.5d37f54de2"));
                 return _client;
             }
 
@@ -3864,12 +3872,12 @@ namespace GeZi
             {
                 try
                 {
-                    Log("自动登录尚未完成，已直接用保存的登录态开始续传。");
+                    Log(UiText.Get("String.Code.MainWindow.xaml.2690958739"));
                     return new QuarkClient(_settings.Cookie);
                 }
                 catch (Exception ex)
                 {
-                    Log("用保存的登录态续传失败: " + ex.Message);
+                    Log(UiText.Get("String.Code.MainWindow.xaml.eccbd04046") + ex.Message);
                 }
             }
             return null;
@@ -3891,12 +3899,12 @@ namespace GeZi
             var client = await EnsureClientForResumeAsync();
             if (client == null)
             {
-                Log("续传需要先登录。请登录后重新下载（分片在，会自然续传）。");
+                Log(UiText.Get("String.Code.MainWindow.xaml.5aca4b0e48"));
                 AppDialog.Show(this,
-                    "续传需要重新获取直链，而这必须处于登录状态。\n\n"
-                    + "现在还没有可用的登录态，所以这次没有开始续传。\n"
-                    + "分片都还在，登录之后再点一次「继续下载」即可（不会重下）。",
-                    "需要先登录",
+                    UiText.Get("String.Code.MainWindow.xaml.f9724e9a4e")
+                    + UiText.Get("String.Code.MainWindow.xaml.f2a878b6ba")
+                    + UiText.Get("String.Code.MainWindow.xaml.8daa317a8c"),
+                    UiText.Get("String.Code.MainWindow.xaml.54de8ba645"),
                     System.Windows.MessageBoxButton.OK,
                     System.Windows.MessageBoxImage.Information);
                 return;
@@ -3931,7 +3939,7 @@ namespace GeZi
 
                         if (string.IsNullOrEmpty(url))
                         {
-                            Log("[" + p.Name + "] 续传取链失败（可能分享已失效或需要重新解析）。");
+                            Log("[" + p.Name + UiText.Get("String.Code.MainWindow.xaml.2e3c3b00b9"));
                             continue;
                         }
 
@@ -3960,19 +3968,19 @@ namespace GeZi
                     }
                     catch (Exception ex)
                     {
-                        Log("[" + (p.Name ?? "?") + "] 续传失败: " + ex.Message);
+                        Log("[" + (p.Name ?? "?") + UiText.Get("String.Code.MainWindow.xaml.b448b49300") + ex.Message);
                     }
                 }
 
                 if (jobs.Count == 0)
                 {
-                    Log("没有任务成功取到直链。");
+                    Log(UiText.Get("String.Code.MainWindow.xaml.d89c96735d"));
                     return;
                 }
 
                 foreach (var job in jobs)
                     _tasks.Add(new TaskItem(job, job.Name));
-                Log("已续传 " + jobs.Count + " 个任务。");
+                Log(UiText.Get("String.Code.MainWindow.xaml.561e243708") + jobs.Count + UiText.Get("String.Code.MainWindow.xaml.f8700039cf"));
                 RunJobs(jobs);
             }
             finally
@@ -4024,20 +4032,20 @@ namespace GeZi
                 {
                     // 🚨 只提 VLC（2026-10-04 用户要求）：全项目只对 VLC 做过参数适配，
                     //    其它播放器（mpv / PotPlayer）可能行为不一致 → 干脆不提，避免给出错误预期。
-                    PlayerStatusText.Text = "未检测到 VLC。"
-                        + "「打开」将回退到系统默认程序 —— 但边下边播未必能用，"
-                        + "因为系统自带播放器通常打不开「还没下完」的文件。";
+                    PlayerStatusText.Text = UiText.Get("String.Code.MainWindow.xaml.a5874aa8c9")
+                        + UiText.Get("String.Code.MainWindow.xaml.93c0c93058")
+                        + UiText.Get("String.Code.MainWindow.xaml.3784ef209b");
                     GetVlcBtn.Visibility = System.Windows.Visibility.Visible;
                 }
                 else
                 {
-                    PlayerStatusText.Text = "已检测到 VLC（" + p.ExePath + "）—— 适合边下边播。";
+                    PlayerStatusText.Text = UiText.Get("String.Code.MainWindow.xaml.632012e1b8") + p.ExePath + UiText.Get("String.Code.MainWindow.xaml.03ae85460a");
                     GetVlcBtn.Visibility = System.Windows.Visibility.Collapsed;
                 }
             }
             catch (Exception ex)
             {
-                PlayerStatusText.Text = "检测播放器失败: " + ex.Message;
+                PlayerStatusText.Text = UiText.Get("String.Code.MainWindow.xaml.83331d5ba2") + ex.Message;
             }
         }
 
@@ -4053,7 +4061,7 @@ namespace GeZi
         private async void OnRecheckPlayer(object sender, RoutedEventArgs e)
         {
             long t0 = BusyClock();
-            if (!BeginBusy(RecheckPlayerBtn, "检测中")) return;
+            if (!BeginBusy(RecheckPlayerBtn, UiText.Get("String.Code.MainWindow.xaml.416b034177"))) return;
             try
             {
                 PlayerLocator.Player p;
@@ -4063,7 +4071,7 @@ namespace GeZi
                 }
                 catch (Exception ex)
                 {
-                    PlayerStatusText.Text = "检测播放器失败: " + ex.Message;
+                    PlayerStatusText.Text = UiText.Get("String.Code.MainWindow.xaml.83331d5ba2") + ex.Message;
                     return;
                 }
                 ApplyPlayerStatus(p);
@@ -4083,10 +4091,10 @@ namespace GeZi
             // 可能被大量日志淹没，弹窗不会。
             if (!ShellLaunch.OpenUrl(url))
             {
-                Log("打不开浏览器，请手动访问：" + url);
+                Log(UiText.Get("String.Code.MainWindow.xaml.07e2d77a75") + url);
                 AppDialog.Show(this,
-                    "无法启动浏览器。\n\n请手动复制下方地址到浏览器打开：\n\n" + url,
-                    "需要手动打开",
+                    UiText.Get("String.Code.MainWindow.xaml.1ad104658a") + url,
+                    UiText.Get("String.Code.MainWindow.xaml.7c81a46ea2"),
                     System.Windows.MessageBoxButton.OK,
                     System.Windows.MessageBoxImage.Information);
             }
@@ -4114,9 +4122,9 @@ namespace GeZi
             if (last != ConcurrencyCap)
             {
                 throw new InvalidOperationException(
-                    "并发档位与核心层上限不一致：档位最高 " + last +
-                    "，核心上限 " + ConcurrencyCap +
-                    "。请同步修改 ThreadPresets 与 XAML 的 ComboBoxItem。");
+                    UiText.Get("String.Code.MainWindow.xaml.36b2e83d42") + last +
+                    UiText.Get("String.Code.MainWindow.xaml.739d4aacba") + ConcurrencyCap +
+                    UiText.Get("String.Code.MainWindow.xaml.f34386dea3"));
             }
         }
 
@@ -4222,7 +4230,7 @@ namespace GeZi
             }
             catch (Exception ex)
             {
-                Log("切换主题失败：" + ex.Message);
+                Log(UiText.Get("String.Code.MainWindow.xaml.5593bba88f") + ex.Message);
             }
         }
 
@@ -4256,16 +4264,16 @@ namespace GeZi
                 if (ThemeSystemRadio.IsChecked == true)
                 {
                     bool sysDark = ThemeManager.IsSystemDark();
-                    ThemeHintText.Text = "跟随系统时，Windows 切换深色/浅色，本程序会自动跟着变。"
-                        + "（当前系统为" + (sysDark ? "深色" : "浅色") + "）";
+                    ThemeHintText.Text = UiText.Get("String.Code.MainWindow.xaml.5cb89e9bad")
+                        + UiText.Get("String.Code.MainWindow.xaml.31339cf013") + (sysDark ? UiText.Get("String.Code.MainWindow.xaml.a69e468021") : UiText.Get("String.Code.MainWindow.xaml.81aedfae6f")) + "）";
                 }
                 else if (ThemeDarkRadio.IsChecked == true)
                 {
-                    ThemeHintText.Text = "始终使用深色界面，不受系统设置影响。";
+                    ThemeHintText.Text = UiText.Get("String.Code.MainWindow.xaml.2c89c1b01b");
                 }
                 else
                 {
-                    ThemeHintText.Text = "始终使用浅色界面，不受系统设置影响。";
+                    ThemeHintText.Text = UiText.Get("String.Code.MainWindow.xaml.ab2596dd2d");
                 }
             }
             catch { }
@@ -4273,9 +4281,9 @@ namespace GeZi
 
         private static string ThemeLogText(AppTheme t)
         {
-            if (t == AppTheme.Dark) return "外观已切换为深色";
-            if (t == AppTheme.Light) return "外观已切换为浅色";
-            return "外观已设为跟随系统（当前" + (ThemeManager.IsSystemDark() ? "深色" : "浅色") + "）";
+            if (t == AppTheme.Dark) return UiText.Get("String.Code.MainWindow.xaml.721127148d");
+            if (t == AppTheme.Light) return UiText.Get("String.Code.MainWindow.xaml.44169632ab");
+            return UiText.Get("String.Code.MainWindow.xaml.50dd36753a") + (ThemeManager.IsSystemDark() ? UiText.Get("String.Code.MainWindow.xaml.a69e468021") : UiText.Get("String.Code.MainWindow.xaml.81aedfae6f")) + "）";
         }
 
         /// <summary>文本框里按回车 = 立刻生效（不必先点别处）。</summary>
@@ -4325,11 +4333,11 @@ namespace GeZi
                 SettingsStore.Save(_settings);
                 RecreateScheduler();
 
-                Log(string.Format("设置已生效（单文件并发 {0} 路，同时下载 {1} 个）", threads, conc));
+                Log(string.Format(UiText.Get("String.Code.MainWindow.xaml.274b45f69b"), threads, conc));
             }
             catch (Exception ex)
             {
-                Log("设置保存失败：" + ex.Message);
+                Log(UiText.Get("String.Code.MainWindow.xaml.a4e647f201") + ex.Message);
             }
         }
 
@@ -4420,8 +4428,8 @@ namespace GeZi
             if (string.IsNullOrEmpty(dir)) dir = _settings.OutDir;
             if (string.IsNullOrEmpty(dir))
             {
-                AppDialog.Show(this, "还没设置分片根目录，也没有下载目录可打开。",
-                    "无可打开的目录", System.Windows.MessageBoxButton.OK,
+                AppDialog.Show(this, UiText.Get("String.Code.MainWindow.xaml.e826a422b0"),
+                    UiText.Get("String.Code.MainWindow.xaml.ebe37a4e72"), System.Windows.MessageBoxButton.OK,
                     System.Windows.MessageBoxImage.Information);
                 return;
             }
@@ -4430,27 +4438,27 @@ namespace GeZi
                 if (!Directory.Exists(dir))
                 {
                     // 不自动创建：仅提示，避免误建目录。
-                    Log("分片根目录不存在：" + dir);
+                    Log(UiText.Get("String.Code.MainWindow.xaml.124e233696") + dir);
                     AppDialog.Show(this,
-                        "分片/缓存根目录还不存在。\n\n请先点「浏览…」选择一个目录，" +
-                        "或留空使用默认（与目标文件同目录）。\n\n路径：\n" + dir,
-                        "目录不存在", System.Windows.MessageBoxButton.OK,
+                        UiText.Get("String.Code.MainWindow.xaml.3ebde75cf1") +
+                        UiText.Get("String.Code.MainWindow.xaml.95b8e2fbaf") + dir,
+                        UiText.Get("String.Code.MainWindow.xaml.74ae8fec4e"), System.Windows.MessageBoxButton.OK,
                         System.Windows.MessageBoxImage.Information);
                     return;
                 }
                 // 走统一入口：先 shell，失败再显式启动 explorer（与 OnOpenOutDir 一致）。
                 if (!ShellLaunch.OpenFolder(dir))
                 {
-                    Log("打不开分片根目录，请手动打开：" + dir);
+                    Log(UiText.Get("String.Code.MainWindow.xaml.705655e51d") + dir);
                     AppDialog.Show(this,
-                        "无法打开分片/缓存根目录。\n\n请手动复制下方路径到资源管理器：\n\n" + dir,
-                        "需要手动打开", System.Windows.MessageBoxButton.OK,
+                        UiText.Get("String.Code.MainWindow.xaml.898aedcdd9") + dir,
+                        UiText.Get("String.Code.MainWindow.xaml.7c81a46ea2"), System.Windows.MessageBoxButton.OK,
                         System.Windows.MessageBoxImage.Information);
                 }
             }
             catch (Exception ex)
             {
-                Log("打开分片根目录失败: " + ex.Message);
+                Log(UiText.Get("String.Code.MainWindow.xaml.0dafbfc59c") + ex.Message);
             }
         }
 
@@ -4480,7 +4488,7 @@ namespace GeZi
             if (_batchRunning)
             {
                 // 正在下载：绝不触碰现有 scheduler，避免上面描述的两种事故。
-                Log("并发数已保存，将在下一批下载生效（当前批次正在运行，不打断）。");
+                Log(UiText.Get("String.Code.MainWindow.xaml.eabc3e3db2"));
                 return;
             }
 
@@ -4516,24 +4524,24 @@ namespace GeZi
                 if (!Directory.Exists(dir))
                 {
                     Directory.CreateDirectory(dir);
-                    Log("下载目录不存在，已创建: " + dir);
+                    Log(UiText.Get("String.Code.MainWindow.xaml.ef7edf4ce2") + dir);
                 }
                 // 走统一入口：先 shell，失败再显式启动 explorer。
                 // 两级都失败就**弹窗**给用户 —— 用户实测 explorer.exe 启动即崩
                 // (0xc0000142)，纯 Log 容易被埋没，弹窗强制可见，且完整路径可直接复制。
                 if (!ShellLaunch.OpenFolder(dir))
                 {
-                    Log("打不开下载目录，请手动打开：" + dir);
+                    Log(UiText.Get("String.Code.MainWindow.xaml.5132fcf1dd") + dir);
                     AppDialog.Show(this,
-                        "无法打开下载目录。\n\n请手动复制下方路径到资源管理器：\n\n" + dir,
-                        "需要手动打开",
+                        UiText.Get("String.Code.MainWindow.xaml.81bb5e6daf") + dir,
+                        UiText.Get("String.Code.MainWindow.xaml.7c81a46ea2"),
                         System.Windows.MessageBoxButton.OK,
                         System.Windows.MessageBoxImage.Information);
                 }
             }
             catch (Exception ex)
             {
-                Log("打开下载目录失败: " + ex.Message);
+                Log(UiText.Get("String.Code.MainWindow.xaml.ab8e3a1064") + ex.Message);
             }
         }
 
@@ -4559,7 +4567,7 @@ namespace GeZi
             var win = new Window
             {
                 Owner = this,
-                Title = "切换账号",
+                Title = UiText.Get("String.Code.MainWindow.xaml.a2820743dc"),
                 ResizeMode = ResizeMode.CanResize,
             };
             DialogChrome.StyleWindow(win, 500, 460);
@@ -4570,13 +4578,13 @@ namespace GeZi
             root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // 列表
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });   // 按钮
 
-            var title = DialogChrome.PageTitle("切换账号");
+            var title = DialogChrome.PageTitle(UiText.Get("String.Code.MainWindow.xaml.a2820743dc"));
             Grid.SetRow(title, 0);
             root.Children.Add(title);
 
             var hint = DialogChrome.Hint(
-                "选择一个账号即可切换，不用重新扫码。删除会同时清掉本机保存的登录信息（含 Cookie）；"
-                + "删除当前账号即等于退出登录。", 0, 12);
+                UiText.Get("String.Code.MainWindow.xaml.8ce6cdcee1")
+                + UiText.Get("String.Code.MainWindow.xaml.86d4c6751b"), 0, 12);
             Grid.SetRow(hint, 1);
             root.Children.Add(hint);
 
@@ -4596,7 +4604,7 @@ namespace GeZi
                 {
                     listBox.Items.Add(new TextBlock
                     {
-                        Text = "暂无已保存的账号，扫码登录后会自动保存一份。",
+                        Text = UiText.Get("String.Code.MainWindow.xaml.6b953fc0e4"),
                         Foreground = (Brush)(TryFindResource("TextTertiaryBrush")
                                              ?? new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88))),
                         FontSize = 12,
@@ -4611,13 +4619,13 @@ namespace GeZi
             };
             rebuild();
 
-            var scanBtn = DialogChrome.PrimaryButton("扫码登录新账号");
+            var scanBtn = DialogChrome.PrimaryButton(UiText.Get("String.Code.MainWindow.xaml.4fab766ed4"));
             // 【2026-10-03】「退出登录」按钮已按用户要求删除 ——
             // 用户原话：「这里退出登录有啥用啊，也不能一键切回。直接删掉这个功能，
             //           想退出的人直接删账号就行了根本不用点这一个」。
             // 所以退出登录只剩**一条**路径：在账号列表里删掉当前账号
             // （删除会连带清掉配置里的 Cookie，见 delBtn 的处理）。
-            var closeBtn = DialogChrome.SecondaryButton("关闭");
+            var closeBtn = DialogChrome.SecondaryButton(UiText.Get("String.Code.MainWindow.xaml.09614cef6c"));
             var btns = DialogChrome.ButtonRow(scanBtn, closeBtn);
             btns.Margin = new Thickness(0, 14, 0, 0);
             Grid.SetRow(btns, 3);
@@ -4667,10 +4675,10 @@ namespace GeZi
                 TextTrimming = TextTrimming.CharacterEllipsis,
             });
             string sub;
-            if (isCurrent) sub = "当前账号";
+            if (isCurrent) sub = UiText.Get("String.Code.MainWindow.xaml.1499d4ad94");
             else if (acc.LastUsedUtc > DateTime.MinValue)
-                sub = "最近使用 " + acc.LastUsedUtc.ToLocalTime().ToString("MM-dd HH:mm");
-            else sub = "本机已保存";
+                sub = UiText.Get("String.Code.MainWindow.xaml.636b997a51") + acc.LastUsedUtc.ToLocalTime().ToString("MM-dd HH:mm");
+            else sub = UiText.Get("String.Code.MainWindow.xaml.fc9fed8aa0");
             texts.Children.Add(new TextBlock
             {
                 Text = sub,
@@ -4686,7 +4694,7 @@ namespace GeZi
 
             var switchBtn = new Button
             {
-                Content = "切换",
+                Content = UiText.Get("String.Code.MainWindow.xaml.c488bf29b9"),
                 Padding = new Thickness(12, 4, 12, 4),
                 Margin = new Thickness(6, 0, 6, 0),
                 IsEnabled = !isCurrent,
@@ -4697,7 +4705,7 @@ namespace GeZi
             switchBtn.Click += async (s, ev) =>
             {
                 switchBtn.IsEnabled = false;
-                switchBtn.Content = "切换中…";
+                switchBtn.Content = UiText.Get("String.Code.MainWindow.xaml.4c8943f40c");
                 await ApplyLoginAsync(acc.Cookie);
                 owner.Close();
             };
@@ -4706,7 +4714,7 @@ namespace GeZi
 
             var delBtn = new Button
             {
-                Content = "删除",
+                Content = UiText.Get("String.Code.MainWindow.xaml.acc985cabc"),
                 Padding = new Thickness(12, 4, 12, 4),
                 VerticalAlignment = VerticalAlignment.Center,
             };
@@ -4716,26 +4724,26 @@ namespace GeZi
             if (dangerBrush != null) delBtn.Foreground = dangerBrush;
             delBtn.Click += (s, ev) =>
             {
-                string tip = "将删除本机保存的账号「" + acc.DisplayName + "」的登录信息，" +
-                             "之后要切回它需要重新扫码登录。";
+                string tip = UiText.Get("String.Code.MainWindow.xaml.37a8ac4b1e") + acc.DisplayName + UiText.Get("String.Code.MainWindow.xaml.ea49160e12") +
+                             UiText.Get("String.Code.MainWindow.xaml.6dd9b0b5a8");
                 // 【2026-10-03】用户反馈「删除时是否真会把对应的 cookie 完全删除，
                 // 旧版 Python Flet 版就删了但是账号还存在」—— 确实是那个问题：
                 // 删档案只删了 accounts/{key}.xml，但**当前账号的 Cookie 还留在
                 // GeZi.config.xml 里**，所以程序看起来还是登录状态。
                 // 现在删当前账号会**同时退出登录**，才算真的删干净。
                 if (isCurrent)
-                    tip += "\n（这是当前账号：删除后会同时退出登录，需要重新登录才能再用。）";
-                var r = AppDialog.Show(owner, tip + "\n\n确定删除吗？", "删除账号",
+                    tip += UiText.Get("String.Code.MainWindow.xaml.af30eb0a98");
+                var r = AppDialog.Show(owner, tip + UiText.Get("String.Code.MainWindow.xaml.7827c7d7a7"), UiText.Get("String.Code.MainWindow.xaml.ccddcd9e65"),
                     MessageBoxButton.OKCancel, MessageBoxImage.Warning);
                 if (r != MessageBoxResult.OK)
                     return;
                 if (AccountStore.Remove(acc.Key))
                 {
-                    Log("已删除本机保存的账号「" + acc.DisplayName + "」");
+                    Log(UiText.Get("String.Code.MainWindow.xaml.2de82a7324") + acc.DisplayName + "」");
                     // 删的是当前账号 → 把配置里的 Cookie 一起清掉，否则"账号还在"
                     if (isCurrent)
                     {
-                        DoLogout("已删除当前账号，同时退出登录。");
+                        DoLogout(UiText.Get("String.Code.MainWindow.xaml.c2ec044ff3"));
                         owner.Close();
                         return;
                     }
@@ -4743,7 +4751,7 @@ namespace GeZi
                 }
                 else
                 {
-                    AppDialog.Show(owner, "删除失败（文件可能被占用）。", "删除账号",
+                    AppDialog.Show(owner, UiText.Get("String.Code.MainWindow.xaml.9ad4c2cf66"), UiText.Get("String.Code.MainWindow.xaml.ccddcd9e65"),
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                 }
             };
@@ -4772,13 +4780,13 @@ namespace GeZi
             // 现在只留「获取二维码」：过期时提示用户再点一次即可。
             var src = sender as Button;
             QrLoginBtn.IsEnabled = false;
-            SetQrStatus("正在获取二维码…", "#333");
+            SetQrStatus(UiText.Get("String.Code.MainWindow.xaml.3757b65b3b"), "#333");
 
             // ⚠️ 只给「取二维码」这一段加按钮加载态。
             // 后面的轮询是**等用户拿手机扫码**，可能持续几分钟 —— 那不是"加载"，
             // 一直转圈会让人以为程序卡住了。等二维码画出来就立刻收掉加载态。
             long t0 = BusyClock();
-            if (!BeginBusy(src, "获取中"))
+            if (!BeginBusy(src, UiText.Get("String.Code.MainWindow.xaml.2625b36461")))
             {
                 QrLoginBtn.IsEnabled = true;
                 return;
@@ -4807,17 +4815,17 @@ namespace GeZi
                         switch (r.Stage)
                         {
                             case QrLoginStage.WaitingScan:
-                                SetQrStatus("请用夸克 App 扫描二维码（等待扫码…）", "#333");
+                                SetQrStatus(UiText.Get("String.Code.MainWindow.xaml.6f430d332c"), "#333");
                                 break;
                             case QrLoginStage.ScannedWaitConfirm:
-                                SetQrStatus("已扫码，请在手机上点击「确认登录」", "#1B6FB8");
+                                SetQrStatus(UiText.Get("String.Code.MainWindow.xaml.97de18b858"), "#1B6FB8");
                                 break;
                             case QrLoginStage.Expired:
                                 SetQrStatus(DescribeExpired(r), "#C0392B");
                                 QrLoginBtn.Focus();   // 按钮只剩这一个，把焦点给它方便回车重试
                                 break;
                             case QrLoginStage.GotTicket:
-                                SetQrStatus("已确认，正在换取登录态…", "#1B6FB8");
+                                SetQrStatus(UiText.Get("String.Code.MainWindow.xaml.7731b0aeeb"), "#1B6FB8");
                                 break;
                         }
                     });
@@ -4827,7 +4835,7 @@ namespace GeZi
                     {
                         // 过期/无效：收起图片，提示用户再点一次「获取二维码」重新取一张。
                         HideQrImage();
-                        SetQrStatus(DescribeExpired(poll) + " 请再点一次「获取二维码」重试。", "#C0392B");
+                        SetQrStatus(DescribeExpired(poll) + UiText.Get("String.Code.MainWindow.xaml.8cde88292b"), "#C0392B");
                         return;
                     }
 
@@ -4838,13 +4846,13 @@ namespace GeZi
                         return;
                     }
                     await ApplyLoginAsync(cookie);
-                    SetQrStatus("登录成功", "#2E7D32");
+                    SetQrStatus(UiText.Get("String.Code.MainWindow.xaml.5af97920bb"), "#2E7D32");
                     HideQrImage();
                 }
             }
             catch (Exception ex)
             {
-                SetQrStatus("登录失败: " + ex.Message, "#C0392B");
+                SetQrStatus(UiText.Get("String.Code.MainWindow.xaml.cf2fdbfa0a") + ex.Message, "#C0392B");
             }
             finally
             {
@@ -4857,10 +4865,10 @@ namespace GeZi
         private static string DescribeExpired(QrPollResult r)
         {
             if (r.Status == -1)
-                return "扫码超时，二维码可能已失效。";
+                return UiText.Get("String.Code.MainWindow.xaml.bed971fe1e");
             if (!string.IsNullOrEmpty(r.Message))
-                return "二维码已失效（" + r.Message + "）。";
-            return "二维码已失效。";
+                return UiText.Get("String.Code.MainWindow.xaml.f9302ac63f") + r.Message + "）。";
+            return UiText.Get("String.Code.MainWindow.xaml.7cf78a917a");
         }
 
         /// <summary>
@@ -4941,15 +4949,15 @@ namespace GeZi
                         (colorHex.IndexOf("2E7D32", StringComparison.OrdinalIgnoreCase) >= 0 ||
                          colorHex.IndexOf("10B981", StringComparison.OrdinalIgnoreCase) >= 0);
 
-            bool pending = text.Contains("正在") || text.Contains("等待") ||
-                           text.Contains("请用") || text.Contains("获取二维码");
+            bool pending = text.Contains(UiText.Get("String.Code.MainWindow.xaml.0d2a144817")) || text.Contains(UiText.Get("String.Code.MainWindow.xaml.6017265afb")) ||
+                           text.Contains(UiText.Get("String.Code.MainWindow.xaml.3d7e203572")) || text.Contains(UiText.Get("String.Code.MainWindow.xaml.e5f8efa92a"));
 
             string key;
-            if (good || text.Contains("成功")) { key = "IconCheckCircle"; }
-            else if (bad || text.Contains("失败") || text.Contains("失效") || text.Contains("超时"))
+            if (good || text.Contains(UiText.Get("String.Code.MainWindow.xaml.82eb9fb6aa"))) { key = "IconCheckCircle"; }
+            else if (bad || text.Contains(UiText.Get("String.Code.MainWindow.xaml.73cf34cd9b")) || text.Contains(UiText.Get("String.Code.MainWindow.xaml.aa6fe6359b")) || text.Contains(UiText.Get("String.Code.MainWindow.xaml.a501f8214a")))
             { key = "IconXCircle"; }
             else if (pending) { key = "IconClock"; }
-            else if (text.Contains("已扫码") || text.Contains("已确认")) { key = "IconCheck"; }
+            else if (text.Contains(UiText.Get("String.Code.MainWindow.xaml.1dcce65335")) || text.Contains(UiText.Get("String.Code.MainWindow.xaml.b6299f435f"))) { key = "IconCheck"; }
             else { key = "IconInfo"; }
 
             brush = (System.Windows.Media.Brush)System.Windows.Application.Current
@@ -5001,7 +5009,7 @@ namespace GeZi
             }
             catch (Exception ex)
             {
-                QrStatusText.Text = "二维码绘制失败: " + ex.Message;
+                QrStatusText.Text = UiText.Get("String.Code.MainWindow.xaml.d5f581de78") + ex.Message;
                 QrImageBox.Visibility = Visibility.Collapsed;
                 if (QrPlaceholderBox != null)
                     QrPlaceholderBox.Visibility = Visibility.Visible;
@@ -5022,12 +5030,12 @@ namespace GeZi
             var cookie = CookieImportBox.Text.Trim();
             if (string.IsNullOrEmpty(cookie))
             {
-                Log("请先粘贴 Cookie");
+                Log(UiText.Get("String.Code.MainWindow.xaml.e3c1165ccf"));
                 return;
             }
             // 导入要联网校验（拉账号信息）→ 按钮就地变成"登录中…"
             long t0 = BusyClock();
-            if (!BeginBusy(ImportCookieBtn, "登录中")) return;
+            if (!BeginBusy(ImportCookieBtn, UiText.Get("String.Code.MainWindow.xaml.c8966a896f"))) return;
             try
             {
                 await ApplyLoginAsync(cookie);
@@ -5051,8 +5059,8 @@ namespace GeZi
         {
             var dlg = new Microsoft.Win32.OpenFileDialog
             {
-                Title = "选择 Cookie 文件",
-                Filter = "Cookie 文件|*.txt;*.json|文本文件 (*.txt)|*.txt|JSON 文件 (*.json)|*.json|所有文件 (*.*)|*.*",
+                Title = UiText.Get("String.Code.MainWindow.xaml.790b1688de"),
+                Filter = UiText.Get("String.Code.MainWindow.xaml.c8ff8c6d68"),
                 CheckFileExists = true,
             };
             if (dlg.ShowDialog(this) != true) return;
@@ -5064,30 +5072,30 @@ namespace GeZi
             }
             catch (Exception ex)
             {
-                Log("读取 Cookie 文件失败：" + ex.Message);
+                Log(UiText.Get("String.Code.MainWindow.xaml.bc4f426d4e") + ex.Message);
                 return;
             }
 
             string cookie = CookieText.Parse(raw);
             if (string.IsNullOrEmpty(cookie))
             {
-                Log("未能从文件中解析出 Cookie：" + dlg.FileName);
+                Log(UiText.Get("String.Code.MainWindow.xaml.95b969f054") + dlg.FileName);
                 AppDialog.Show(this,
-                    "没能从这个文件里解析出 Cookie。\n\n"
-                    + "支持两种内容：\n"
-                    + "  · 浏览器扩展（如 Cookie-Editor）导出的 .json\n"
-                    + "  · 直接复制的 Cookie 文本（.txt，形如 a=1; b=2）",
-                    "解析失败", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    UiText.Get("String.Code.MainWindow.xaml.4ce2ba1f32")
+                    + UiText.Get("String.Code.MainWindow.xaml.7e3e9acf1f")
+                    + UiText.Get("String.Code.MainWindow.xaml.dfa2cdafb4")
+                    + UiText.Get("String.Code.MainWindow.xaml.2385532210"),
+                    UiText.Get("String.Code.MainWindow.xaml.c60e2b9228"), MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
             // 回填到输入框，让用户看得见到底导入了什么
             CookieImportBox.Text = cookie;
             int n = cookie.Split(';').Length;
-            Log(string.Format("已从文件导入 Cookie（{0}），共 {1} 项。", dlg.FileName, n));
+            Log(string.Format(UiText.Get("String.Code.MainWindow.xaml.ca554d17e2"), dlg.FileName, n));
 
             long t0 = BusyClock();
-            if (!BeginBusy(ImportCookieFileBtn, "登录中")) return;
+            if (!BeginBusy(ImportCookieFileBtn, UiText.Get("String.Code.MainWindow.xaml.c8966a896f"))) return;
             try
             {
                 await ApplyLoginAsync(cookie);
@@ -5108,7 +5116,7 @@ namespace GeZi
         {
             if (_client == null)
             {
-                Log("尚未登录");
+                Log(UiText.Get("String.Code.MainWindow.xaml.c0285546cb"));
                 return;
             }
             try
@@ -5118,17 +5126,17 @@ namespace GeZi
                     "GeZi-Cookie-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".txt");
                 File.WriteAllText(outFile, _client.CookieStr, new UTF8Encoding(false));
 
-                Log("已导出 Cookie：" + outFile);
+                Log(UiText.Get("String.Code.MainWindow.xaml.c3d5ea79fa") + outFile);
                 AppDialog.Show(this,
-                    "已把当前登录 Cookie 导出到：\n\n" + outFile +
-                    "\n\n注意：Cookie 等同于账号登录凭证，请勿分享给他人。",
-                    "导出完成", MessageBoxButton.OK, MessageBoxImage.Information);
+                    UiText.Get("String.Code.MainWindow.xaml.2e77133f54") + outFile +
+                    UiText.Get("String.Code.MainWindow.xaml.5ab7453c64"),
+                    UiText.Get("String.Code.MainWindow.xaml.eb4fd856fa"), MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
-                Log("导出 Cookie 失败：" + ex.Message);
-                AppDialog.Show(this, "导出 Cookie 失败：\n\n" + ex.Message,
-                    "导出失败", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Log(UiText.Get("String.Code.MainWindow.xaml.fe9a5621fb") + ex.Message);
+                AppDialog.Show(this, UiText.Get("String.Code.MainWindow.xaml.173fa955f3") + ex.Message,
+                    UiText.Get("String.Code.MainWindow.xaml.798a11d409"), MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 
@@ -5156,7 +5164,7 @@ namespace GeZi
             UpdateAccountCard(null, 0, 0);
             LoginBtn.Visibility = Visibility.Visible;
             AccountsBtn.Visibility = Visibility.Collapsed;
-            Log(string.IsNullOrEmpty(reason) ? "已登出" : reason);
+            Log(string.IsNullOrEmpty(reason) ? UiText.Get("String.Code.MainWindow.xaml.cfef7485e8") : reason);
         }
 
         private async Task ApplyLoginAsync(string cookie)
@@ -5193,7 +5201,7 @@ namespace GeZi
                         try
                         {
                             Dispatcher.BeginInvoke(new Action(
-                                () => ShowLoginExpired("保活心跳连续失败")));
+                                () => ShowLoginExpired(UiText.Get("String.Code.MainWindow.xaml.d050e15e70"))));
                         }
                         catch { }
                     };
@@ -5217,20 +5225,20 @@ namespace GeZi
                     UpdateAccountCard(nick, 0, 0);
                     LoginBtn.Visibility = Visibility.Collapsed;
                     AccountsBtn.Visibility = Visibility.Visible;
-                    Log("登录成功: " + nick);
+                    Log(UiText.Get("String.Code.MainWindow.xaml.d2e78a213c") + nick);
                     await RefreshCapacityAsync();
                 }
                 else
                 {
                     client.Dispose();
                     UpdateAccountCard(null, 0, 0);
-                    AccountHintText.Text = "Cookie 已失效，请重新登录";
-                    Log("登录校验失败: " + nick);
+                    AccountHintText.Text = UiText.Get("String.Code.MainWindow.xaml.d8567ca82d");
+                    Log(UiText.Get("String.Code.MainWindow.xaml.f31e0af022") + nick);
                 }
             }
             catch (Exception ex)
             {
-                Log("登录出错: " + ex.Message);
+                Log(UiText.Get("String.Code.MainWindow.xaml.cd13d26428") + ex.Message);
             }
         }
 
@@ -5244,7 +5252,7 @@ namespace GeZi
         /// `QuarkClient.ValidateAsync` 在拿不到真名时返回的**兜底昵称**。
         /// ⚠️ 这个值**绝不能写进配置** —— 否则真实昵称就被它覆盖掉了。
         /// </summary>
-        private const string FallbackNick = "已登录用户";
+        private static readonly string FallbackNick = UiText.Get("String.Code.MainWindow.xaml.1a172c78bd");
 
         /// <summary>
         /// 取**真实**的账号昵称与头像（登录时、手动刷新时共用这一份）。
@@ -5278,13 +5286,13 @@ namespace GeZi
                     }
                     else if (info.HasValue && !string.IsNullOrEmpty(info.Value.Error))
                     {
-                        Log("取账号昵称/头像失败：" + info.Value.Error);
+                        Log(UiText.Get("String.Code.MainWindow.xaml.f9979b6e5b") + info.Value.Error);
                     }
                 }
                 catch (Exception ex)
                 {
                     // 拿不到就用兜底值，绝不让它影响登录
-                    Log("取账号昵称/头像出错：" + ex.Message);
+                    Log(UiText.Get("String.Code.MainWindow.xaml.5e9642a388") + ex.Message);
                 }
             }
             return (true, nick, client.AvatarUrl);
@@ -5294,7 +5302,7 @@ namespace GeZi
         {
             if (_client == null)
             {
-                Log("尚未登录，先扫码登录吧");
+                Log(UiText.Get("String.Code.MainWindow.xaml.883a953253"));
                 try { Tabs.SelectedIndex = 3; } catch { }
                 return;
             }
@@ -5305,8 +5313,8 @@ namespace GeZi
                 var (valid, nick, avatar) = await ResolveAccountInfoAsync(_client, _settings.Cookie);
                 if (!valid)
                 {
-                    Log("账号状态刷新：登录已失效");
-                    ShowLoginExpired("刷新时发现登录已失效");
+                    Log(UiText.Get("String.Code.MainWindow.xaml.bb05139f28"));
+                    ShowLoginExpired(UiText.Get("String.Code.MainWindow.xaml.aadf57aa80"));
                     return;
                 }
 
@@ -5321,12 +5329,12 @@ namespace GeZi
                 try { SettingsStore.Save(_settings); } catch { }
 
                 await RefreshCapacityAsync();
-                Log("已刷新账号状态" + (string.IsNullOrWhiteSpace(_settings.Who)
+                Log(UiText.Get("String.Code.MainWindow.xaml.cd58840467") + (string.IsNullOrWhiteSpace(_settings.Who)
                     ? "" : "：" + _settings.Who));
             }
             catch (Exception ex)
             {
-                Log("刷新账号状态失败：" + ex.Message);
+                Log(UiText.Get("String.Code.MainWindow.xaml.1883dd78c9") + ex.Message);
             }
             finally
             {
@@ -5348,9 +5356,9 @@ namespace GeZi
             _loginExpired = true;
             try
             {
-                AccountText.Text = "登录已过期";
-                AccountText.ToolTip = "登录已过期，请到「登录」页重新扫码";
-                AccountHintText.Text = "点这里重新扫码登录";
+                AccountText.Text = UiText.Get("String.Code.MainWindow.xaml.e3aabe8b38");
+                AccountText.ToolTip = UiText.Get("String.Code.MainWindow.xaml.815e970c6e");
+                AccountHintText.Text = UiText.Get("String.Code.MainWindow.xaml.15eadf67b5");
                 AvatarText.Text = "!";
                 AvatarText.Visibility = Visibility.Visible;
                 AvatarImage.Visibility = Visibility.Collapsed;
@@ -5359,16 +5367,16 @@ namespace GeZi
                 CapacityBar.Value = 0;
                 CapacityBar.Foreground = (Brush)FindResource("DangerBrush");
                 CapacityBar.ToolTip = null;
-                CapacityText.Text = "登录已过期";
+                CapacityText.Text = UiText.Get("String.Code.MainWindow.xaml.e3aabe8b38");
                 SyncLoginPageState(null, 0, 0);
             }
             catch { }
 
-            Log("登录已过期：" + (reason ?? "") + " 请到「登录」页重新扫码。");
+            Log(UiText.Get("String.Code.MainWindow.xaml.f74da4cfb0") + (reason ?? "") + UiText.Get("String.Code.MainWindow.xaml.00b9ace730"));
             try
             {
-                _tray?.ShowBalloon("登录已过期",
-                    "夸克登录状态已失效，请打开主窗口到「登录」页重新扫码。");
+                _tray?.ShowBalloon(UiText.Get("String.Code.MainWindow.xaml.e3aabe8b38"),
+                    UiText.Get("String.Code.MainWindow.xaml.68b33c6b17"));
             }
             catch { }
         }
@@ -5430,12 +5438,12 @@ namespace GeZi
             {
                 bool dontAsk;
                 var r = AppDialog.ShowWithDontAsk(this,
-                    "要让鸽子下载继续在后台下载吗？\n\n" +
-                    "· 最小化到托盘：窗口收进通知区，下载继续跑；\n" +
-                    "   想彻底退出，右键托盘图标选「退出」。\n" +
-                    "· 直接退出程序：立即结束进程（已下部分会保留，下次可续传）。",
-                    "关闭窗口",
-                    "最小化到托盘", "直接退出程序",
+                    UiText.Get("String.Code.MainWindow.xaml.17fd1fc9aa") +
+                    UiText.Get("String.Code.MainWindow.xaml.116493f52d") +
+                    UiText.Get("String.Code.MainWindow.xaml.daa6e6e72a") +
+                    UiText.Get("String.Code.MainWindow.xaml.8eef5e09ee"),
+                    UiText.Get("String.Code.MainWindow.xaml.13ed257610"),
+                    UiText.Get("String.Code.MainWindow.xaml.439af99ad4"), UiText.Get("String.Code.MainWindow.xaml.db3aedef9a"),
                     MessageBoxImage.Question, out dontAsk);
 
                 action = (r == MessageBoxResult.OK)
@@ -5449,9 +5457,9 @@ namespace GeZi
                     _settings.OnCloseButton = action;
                     try { SettingsStore.Save(_settings); } catch { }
                     try { LoadSettingsToUi(); } catch { }
-                    Log("已记住「关闭按钮」行为：" +
-                        (action == CloseAction.MinimizeToTray ? "最小化到托盘" : "直接退出程序") +
-                        "（可在设置页修改）");
+                    Log(UiText.Get("String.Code.MainWindow.xaml.2aef638a49") +
+                        (action == CloseAction.MinimizeToTray ? UiText.Get("String.Code.MainWindow.xaml.439af99ad4") : UiText.Get("String.Code.MainWindow.xaml.db3aedef9a")) +
+                        UiText.Get("String.Code.MainWindow.xaml.b930124d0a"));
                 }
             }
 
@@ -5466,8 +5474,8 @@ namespace GeZi
             if (_batchRunning)
             {
                 var r = AppDialog.Show(this,
-                    "还有下载任务正在运行，确定要退出吗？\n（退出会中断本次下载，已下部分会保留，下次可续传。）",
-                    "退出确认", MessageBoxButton.OKCancel, MessageBoxImage.Question);
+                    UiText.Get("String.Code.MainWindow.xaml.2cffa357b3"),
+                    UiText.Get("String.Code.MainWindow.xaml.5e6e5e0477"), MessageBoxButton.OKCancel, MessageBoxImage.Question);
                 if (r != MessageBoxResult.OK)
                 {
                     e.Cancel = true;
@@ -5494,10 +5502,10 @@ namespace GeZi
                 if (_tray != null && !_trayHintShown)
                 {
                     _trayHintShown = true;
-                    _tray.ShowBalloon("鸽子下载仍在后台运行",
-                        "下载会继续。双击托盘图标可重新打开窗口，右键可选「退出」。");
+                    _tray.ShowBalloon(UiText.Get("String.Code.MainWindow.xaml.d35e7a146d"),
+                        UiText.Get("String.Code.MainWindow.xaml.fc26ebe5e3"));
                 }
-                Log("已最小化到托盘，下载继续。右键托盘图标可选「退出」。");
+                Log(UiText.Get("String.Code.MainWindow.xaml.bc48715971"));
             }
             catch { }
         }
@@ -5539,7 +5547,7 @@ namespace GeZi
             try
             {
                 // 提示文案要把"单击/双击"讲清楚 —— 这两种行为不写出来没人猜得到。
-                _tray = new TrayIcon("鸽子下载 · 单击开关小窗，双击打开主窗口，右键更多");
+                _tray = new TrayIcon(UiText.Get("String.Code.MainWindow.xaml.14962f3c4d"));
                 // 用户指定：**单击 = 小窗，双击 = 主窗口**。
                 // （单击动作在 TrayIcon 里延迟一个双击间隔执行，否则双击会先触发单击。）
                 _tray.SingleClickRequested += ToggleMiniWindow;
@@ -5557,7 +5565,7 @@ namespace GeZi
             }
             catch (Exception ex)
             {
-                Log("托盘图标创建失败（不影响下载）：" + ex.Message);
+                Log(UiText.Get("String.Code.MainWindow.xaml.5318739f13") + ex.Message);
             }
         }
 
@@ -5640,7 +5648,7 @@ namespace GeZi
             }
             catch (Exception ex)
             {
-                Log("小窗打开失败：" + ex.Message);
+                Log(UiText.Get("String.Code.MainWindow.xaml.af9c5a351a") + ex.Message);
             }
         }
 
@@ -5722,7 +5730,7 @@ namespace GeZi
             }
             catch (Exception ex)
             {
-                Log("打开「关于」窗口失败：" + ex.Message);
+                Log(UiText.Get("String.Code.MainWindow.xaml.3d04e0b9ef") + ex.Message);
             }
         }
 
@@ -5805,7 +5813,7 @@ namespace GeZi
             catch (Exception ex)
             {
                 // 拿不到就回退首字头像 —— 不打扰用户，但记一行日志便于排查
-                Log("账号头像加载失败，已回退为昵称首字：" + ex.GetType().Name + ": " + ex.Message);
+                Log(UiText.Get("String.Code.MainWindow.xaml.47b5c87af6") + ex.GetType().Name + ": " + ex.Message);
                 img.Source = null;
                 img.Tag = null;
                 img.Visibility = Visibility.Collapsed;
@@ -5844,14 +5852,14 @@ namespace GeZi
                     AvatarImage.Source = null;
                     AvatarImage.Visibility = Visibility.Collapsed;
                     AvatarText.Visibility = Visibility.Visible;
-                    AccountText.Text = "未登录";
+                    AccountText.Text = UiText.Get("String.Code.MainWindow.xaml.1afde750d5");
                     AccountText.ToolTip = null;
-                    AccountHintText.Text = "登录后可浏览网盘";
+                    AccountHintText.Text = UiText.Get("String.Code.MainWindow.xaml.f49cd6ae5e");
                     // 空槽：值为 0、用最浅的状态色画一条，保持占位不消失
                     CapacityBar.Value = 0;
                     CapacityBar.Foreground = (Brush)FindResource("BorderBrushStrong");
                     CapacityBar.ToolTip = null;
-                    CapacityText.Text = "容量未知";
+                    CapacityText.Text = UiText.Get("String.Code.MainWindow.xaml.4ad25eb49b");
 
                     SyncLoginPageState(null, 0, 0);
                     return;
@@ -5867,7 +5875,7 @@ namespace GeZi
 
                 AccountText.Text = nick;
                 AccountText.ToolTip = nick;   // 昵称过长被截断时仍可悬停看全
-                AccountHintText.Text = "夸克网盘";
+                AccountHintText.Text = UiText.Get("String.Code.MainWindow.xaml.c4299af0da");
 
                 if (total > 0)
                 {
@@ -5898,13 +5906,13 @@ namespace GeZi
                         : "CapacityLowBrush");
 
                     CapacityText.Text = Util.FormatSize(used) + " / " + Util.FormatSize(total);
-                    CapacityBar.ToolTip = "已用 " + Util.FormatSize(used)
-                                        + " / 共 " + Util.FormatSize(total)
+                    CapacityBar.ToolTip = UiText.Get("String.Code.MainWindow.xaml.5a58019498") + Util.FormatSize(used)
+                                        + UiText.Get("String.Code.MainWindow.xaml.669d937f35") + Util.FormatSize(total)
                                         + "（" + pct.ToString("0.#") + "%）"
                                         + (overQuota
-                                            ? "\n已超出默认容量 " + Util.FormatSize(used - total)
-                                            : "\n剩余 " + Util.FormatSize(free < 0 ? 0 : free)
-                                              + (freeTooLow ? "　⚠ 剩余不足 1 GB" : ""));
+                                            ? UiText.Get("String.Code.MainWindow.xaml.20beaf3a7a") + Util.FormatSize(used - total)
+                                            : UiText.Get("String.Code.MainWindow.xaml.2cc8dcf716") + Util.FormatSize(free < 0 ? 0 : free)
+                                              + (freeTooLow ? UiText.Get("String.Code.MainWindow.xaml.b1d952d63d") : ""));
                 }
                 else
                 {
@@ -5912,7 +5920,7 @@ namespace GeZi
                     CapacityBar.Value = 0;
                     CapacityBar.Foreground = (Brush)FindResource("BorderBrushStrong");
                     CapacityBar.ToolTip = null;
-                    CapacityText.Text = "容量获取中…";
+                    CapacityText.Text = UiText.Get("String.Code.MainWindow.xaml.96010f5b8b");
                 }
 
                 SyncLoginPageState(nick, used, total);
@@ -5938,8 +5946,8 @@ namespace GeZi
                     LoginAvatarImage.Source = null;
                     LoginAvatarImage.Visibility = Visibility.Collapsed;
                     LoginAvatarText.Visibility = Visibility.Visible;
-                    LoginWhoText.Text = "未登录";
-                    LoginSubText.Text = "扫码或导入 Cookie 即可登录";
+                    LoginWhoText.Text = UiText.Get("String.Code.MainWindow.xaml.1afde750d5");
+                    LoginSubText.Text = UiText.Get("String.Code.MainWindow.xaml.4ec8478988");
                     return;
                 }
 
@@ -5949,8 +5957,8 @@ namespace GeZi
                     LoginAvatarImage, LoginAvatarText, _settings.AvatarUrl);
                 LoginWhoText.Text = nick;
                 LoginSubText.Text = total > 0
-                    ? "已用 " + Util.FormatSize(used) + " / 共 " + Util.FormatSize(total)
-                    : "已登录（容量获取中…）";
+                    ? UiText.Get("String.Code.MainWindow.xaml.5a58019498") + Util.FormatSize(used) + UiText.Get("String.Code.MainWindow.xaml.669d937f35") + Util.FormatSize(total)
+                    : UiText.Get("String.Code.MainWindow.xaml.59b3efd3d2");
             }
             catch { }
         }
@@ -5997,7 +6005,7 @@ namespace GeZi
                     // 空状态的文案按模式区分：分享模式该说"粘贴链接"，
                     // 网盘模式该说"这个目录是空的"。一句通用文案两边都不贴切。
                     if (FileEmptyText != null)
-                        FileEmptyText.Text = ShareMode ? "还没有内容" : "这个目录是空的";
+                        FileEmptyText.Text = ShareMode ? UiText.Get("String.Code.MainWindow.xaml.3c2f661501") : UiText.Get("String.Code.MainWindow.xaml.0634e046a7");
                 }
                 if (TaskEmptyState != null)
                     TaskEmptyState.Visibility = _tasks.Count == 0 ? Visibility.Visible : Visibility.Collapsed;

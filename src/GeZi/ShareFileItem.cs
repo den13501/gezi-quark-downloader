@@ -79,7 +79,7 @@ namespace GeZi
                 if (_dirSizeFailed)
                     return "—";
                 if (_dirSize == null)
-                    return "计算中…";
+                    return UiText.Get("String.Code.ShareFileItem.85f7b0ce98");
                 return FormatSize(_dirSize.Value);
             }
         }

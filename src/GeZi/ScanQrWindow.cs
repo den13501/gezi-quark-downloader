@@ -64,7 +64,7 @@ namespace GeZi
             _onDecoded = onDecoded;
             _log = log;
 
-            Title = "识别二维码";
+            Title = UiText.Get("String.Code.ScanQrWindow.7931357c9d");
             ResizeMode = ResizeMode.NoResize;
             DialogChrome.StyleWindow(this, 520, 560);
             DialogChrome.ApplyRoundedCorners(this);
@@ -100,15 +100,15 @@ namespace GeZi
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });   // 状态
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });   // 按钮
 
-            var title = DialogChrome.PageTitle("识别二维码");
+            var title = DialogChrome.PageTitle(UiText.Get("String.Code.ScanQrWindow.7931357c9d"));
             Grid.SetRow(title, 0);
             root.Children.Add(title);
 
             var hint = DialogChrome.Hint(
-                "把夸克分享二维码图片识别成链接。支持三种方式：\n"
-                + "· 截图后按 Ctrl+V 直接粘贴（最快）\n"
-                + "· 点「选择图片…」从电脑里挑一张\n"
-                + "· 把图片文件拖到本窗口",
+                UiText.Get("String.Code.ScanQrWindow.3850b90cc8")
+                + UiText.Get("String.Code.ScanQrWindow.dd4aba0b2b")
+                + UiText.Get("String.Code.ScanQrWindow.6aa18f51dc")
+                + UiText.Get("String.Code.ScanQrWindow.f83293a368"),
                 0, 12);
             Grid.SetRow(hint, 1);
             root.Children.Add(hint);
@@ -116,7 +116,7 @@ namespace GeZi
             // 预览区：一个虚线框感的卡片，里面放拖放提示或已选图片
             var dropHint = new TextBlock
             {
-                Text = "把图片拖到这里\n（或 Ctrl+V 粘贴 / 点下方「选择图片…」）",
+                Text = UiText.Get("String.Code.ScanQrWindow.cf8f60ce24"),
                 TextWrapping = TextWrapping.Wrap,
                 TextAlignment = TextAlignment.Center,
                 FontSize = 12.5,
@@ -156,10 +156,10 @@ namespace GeZi
             Grid.SetRow(_statusText, 3);
             root.Children.Add(_statusText);
 
-            var pickBtn = DialogChrome.SecondaryButton("选择图片…", (s, a) => PickFile());
-            _decodeBtn = DialogChrome.PrimaryButton("识别", (s, a) => DecodeNow());
+            var pickBtn = DialogChrome.SecondaryButton(UiText.Get("String.Code.ScanQrWindow.09122219e2"), (s, a) => PickFile());
+            _decodeBtn = DialogChrome.PrimaryButton(UiText.Get("String.Code.ScanQrWindow.0b9c28d13d"), (s, a) => DecodeNow());
             _decodeBtn.IsEnabled = false;
-            var cancelBtn = DialogChrome.SecondaryButton("取消", (s, a) => Close());
+            var cancelBtn = DialogChrome.SecondaryButton(UiText.Get("String.Code.ScanQrWindow.06dbb49961"), (s, a) => Close());
 
             var btns = DialogChrome.ButtonRow(pickBtn, _decodeBtn, cancelBtn);
             btns.Margin = new Thickness(0, 14, 0, 0);
@@ -203,8 +203,8 @@ namespace GeZi
         {
             var dlg = new Microsoft.Win32.OpenFileDialog
             {
-                Title = "选择二维码图片",
-                Filter = "图片文件|*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.webp|所有文件|*.*",
+                Title = UiText.Get("String.Code.ScanQrWindow.53fb6745c6"),
+                Filter = UiText.Get("String.Code.ScanQrWindow.c8c13ae866"),
                 CheckFileExists = true,
             };
             if (dlg.ShowDialog(this) == true)
@@ -222,7 +222,7 @@ namespace GeZi
             {
                 if (LoadFromFile(f)) return;
             }
-            SetStatus("拖进来的文件读不出图片（支持的格式：PNG / JPG / BMP / GIF / WebP）", error: true);
+            SetStatus(UiText.Get("String.Code.ScanQrWindow.8a6e6b61e9"), error: true);
         }
 
         private void TryPasteFromClipboard(bool silentIfEmpty)
@@ -231,14 +231,14 @@ namespace GeZi
             {
                 if (!Clipboard.ContainsImage())
                 {
-                    if (!silentIfEmpty) SetStatus("剪贴板里没有图片。请先截图或复制一张二维码图片。", error: true);
+                    if (!silentIfEmpty) SetStatus(UiText.Get("String.Code.ScanQrWindow.8c100c3a8c"), error: true);
                     return;
                 }
 
                 var src = Clipboard.GetImage();
                 if (src == null)
                 {
-                    if (!silentIfEmpty) SetStatus("剪贴板里的图片读不出来。", error: true);
+                    if (!silentIfEmpty) SetStatus(UiText.Get("String.Code.ScanQrWindow.c547986a14"), error: true);
                     return;
                 }
 
@@ -253,11 +253,11 @@ namespace GeZi
                 }
 
                 SetPending(png, null);
-                SetStatus("已读取剪贴板图片（" + src.PixelWidth + "×" + src.PixelHeight + "），点「识别」或按回车。", error: false);
+                SetStatus(UiText.Get("String.Code.ScanQrWindow.a12b7acad0") + src.PixelWidth + "×" + src.PixelHeight + UiText.Get("String.Code.ScanQrWindow.6f1bbc38d0"), error: false);
             }
             catch (Exception ex)
             {
-                if (!silentIfEmpty) SetStatus("读剪贴板失败：" + ex.Message, error: true);
+                if (!silentIfEmpty) SetStatus(UiText.Get("String.Code.ScanQrWindow.59270802c0") + ex.Message, error: true);
             }
         }
 
@@ -275,7 +275,7 @@ namespace GeZi
                     int w = bmp.Width, h = bmp.Height;
                     bmp.Dispose();
                     SetPending(bytes, path);
-                    SetStatus("已选择：" + Path.GetFileName(path) + "（" + w + "×" + h + "），点「识别」或按回车。", error: false);
+                    SetStatus(UiText.Get("String.Code.ScanQrWindow.9905a21d8b") + Path.GetFileName(path) + "（" + w + "×" + h + UiText.Get("String.Code.ScanQrWindow.6f1bbc38d0"), error: false);
                     return true;
                 }
             }
@@ -330,12 +330,12 @@ namespace GeZi
         {
             if (_pendingBytes == null)
             {
-                SetStatus("还没有选图片。", error: true);
+                SetStatus(UiText.Get("String.Code.ScanQrWindow.9b8a0f88c9"), error: true);
                 return;
             }
 
             _decodeBtn.IsEnabled = false;
-            SetStatus("正在识别…", error: false);
+            SetStatus(UiText.Get("String.Code.ScanQrWindow.664b567189"), error: false);
 
             byte[] bytes = _pendingBytes;
             string path = _pendingPath;
@@ -351,7 +351,7 @@ namespace GeZi
             {
                 if (t.IsFaulted)
                 {
-                    SetStatus("识别出错：" + (t.Exception?.GetBaseException().Message ?? "未知错误"), error: true);
+                    SetStatus(UiText.Get("String.Code.ScanQrWindow.141b77c4ee") + (t.Exception?.GetBaseException().Message ?? UiText.Get("String.Code.ScanQrWindow.4d32705c27")), error: true);
                     _decodeBtn.IsEnabled = true;
                     return;
                 }
@@ -359,20 +359,20 @@ namespace GeZi
                 var r = t.Result;
                 if (r == null)
                 {
-                    SetStatus("识别失败。", error: true);
+                    SetStatus(UiText.Get("String.Code.ScanQrWindow.68336c053e"), error: true);
                     _decodeBtn.IsEnabled = true;
                     return;
                 }
 
                 if (!r.Ok)
                 {
-                    SetStatus(r.Error ?? "没识别到二维码。", error: true);
+                    SetStatus(r.Error ?? UiText.Get("String.Code.ScanQrWindow.0ac14df705"), error: true);
                     _decodeBtn.IsEnabled = true;
                     return;
                 }
 
                 // 成功
-                _log?.Invoke("二维码识别成功（" + r.Format + "，" + r.Attempt + "）：" + r.Text);
+                _log?.Invoke(UiText.Get("String.Code.ScanQrWindow.c67faa5ac7") + r.Format + "，" + r.Attempt + "）：" + r.Text);
                 var cb = _onDecoded;
                 Close();
                 // 先关窗再回调，避免回调里弹的对话框被本窗口挡在后面

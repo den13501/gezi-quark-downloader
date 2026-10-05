@@ -326,15 +326,15 @@ namespace GeZi
         {
             var cm = new ContextMenu();
 
-            var miShow = new MenuItem { Header = "显示主窗口" };
+            var miShow = new MenuItem { Header = UiText.Get("String.Code.TrayIcon.3ed590ec10") };
             miShow.Click += (s, e) => Raise(DoubleClickRequested);
             cm.Items.Add(miShow);
 
-            _miMini = new MenuItem { Header = "显示小窗", IsCheckable = true };
+            _miMini = new MenuItem { Header = UiText.Get("String.Code.TrayIcon.eb7553585f"), IsCheckable = true };
             _miMini.Click += (s, e) => Raise(ToggleMiniRequested);
             cm.Items.Add(_miMini);
 
-            _miPause = new MenuItem { Header = "暂停全部" };
+            _miPause = new MenuItem { Header = UiText.Get("String.Code.TrayIcon.e19da1d1e5") };
             _miPause.Click += (s, e) => Raise(PauseAllRequested);
             cm.Items.Add(_miPause);
 
@@ -360,7 +360,7 @@ namespace GeZi
             catch { }
             cm.Items.Add(sep);
 
-            var miExit = new MenuItem { Header = "退出" };
+            var miExit = new MenuItem { Header = UiText.Get("String.Code.TrayIcon.b499f2f1a4") };
             miExit.Click += (s, e) => Raise(ExitRequested);
             cm.Items.Add(miExit);
 
@@ -372,14 +372,14 @@ namespace GeZi
         {
             if (_miMini == null) return;
             _miMini.IsChecked = visible;
-            _miMini.Header = visible ? "隐藏小窗" : "显示小窗";
+            _miMini.Header = visible ? UiText.Get("String.Code.TrayIcon.d3bdbabef5") : UiText.Get("String.Code.TrayIcon.eb7553585f");
         }
 
         /// <summary>同步「暂停全部 / 恢复全部」的文案。</summary>
         public void SetAllPaused(bool allPaused)
         {
             if (_miPause == null) return;
-            _miPause.Header = allPaused ? "恢复全部" : "暂停全部";
+            _miPause.Header = allPaused ? UiText.Get("String.Code.TrayIcon.c840f27b18") : UiText.Get("String.Code.TrayIcon.e19da1d1e5");
         }
 
         /// <summary>

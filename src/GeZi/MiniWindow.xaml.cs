@@ -91,8 +91,8 @@ namespace GeZi
                                       || t.State == JobState.Cancelling).ToList();
             int finished = _all.Count(t => t.State == JobState.Completed);
 
-            TitleText.Text = active.Count == 0 ? "鸽子下载" : ("下载中（" + active.Count + "）");
-            RemainText.Text = active.Count == 0 ? "—" : (active.Count + " 个");
+            TitleText.Text = active.Count == 0 ? UiText.Get("String.Code.MiniWindow.xaml.f7ce1a0d11") : (UiText.Get("String.Code.MiniWindow.xaml.fec55ef763") + active.Count + "）");
+            RemainText.Text = active.Count == 0 ? "—" : (active.Count + UiText.Get("String.Code.MiniWindow.xaml.082b6ba00a"));
 
             // 「总进度」不写百分比，写**已完成数/总任务数**（用户要求）。
             // 百分比在一批小文件上跳得很快、看不出还剩几个，计数才直观。

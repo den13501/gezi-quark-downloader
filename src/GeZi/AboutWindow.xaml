@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
-        Title="关于 鸽子下载"
+        Title="{DynamicResource String.AboutWindow.Window.Title.921c1a06}"
         Width="430"
         SizeToContent="Height"
         WindowStyle="None"
@@ -31,16 +31,16 @@
         <StackPanel>
             <!-- 标题栏 -->
             <Grid Height="44" Background="Transparent">
-                <TextBlock Text="关于 鸽子下载" Margin="18,0,44,0"
+                <TextBlock Text="{DynamicResource String.AboutWindow.TextBlock.Text.921c1a06}" Margin="18,0,44,0"
                            VerticalAlignment="Center"
                            FontSize="13.5" FontWeight="SemiBold"
                            Foreground="{DynamicResource TextPrimaryBrush}"/>
                 <Button x:Name="CloseBtn" Click="OnCloseClick"
                         shell:WindowChrome.IsHitTestVisibleInChrome="True"
-                        AutomationProperties.Name="关闭"
+                        AutomationProperties.Name="{DynamicResource String.AboutWindow.CloseBtn.AutomationName.6c14bd7f}"
                         HorizontalAlignment="Right" VerticalAlignment="Center"
                         Margin="0,0,10,0" Width="30" Height="30"
-                        Style="{StaticResource CaptionCloseButton}" ToolTip="关闭">
+                        Style="{StaticResource CaptionCloseButton}" ToolTip="{DynamicResource String.AboutWindow.CloseBtn.ToolTip.6c14bd7f}">
                     <Path Data="{StaticResource IconClose}" Stretch="Uniform" Width="11" Height="11"
                           Stroke="{DynamicResource TextSecondaryBrush}" StrokeThickness="1.8"
                           StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
@@ -57,12 +57,12 @@
                                VerticalAlignment="Center"
                                RenderOptions.BitmapScalingMode="HighQuality"/>
                         <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
-                            <TextBlock Text="鸽子下载" FontSize="19" FontWeight="SemiBold"
+                            <TextBlock Text="{DynamicResource String.AboutWindow.TextBlock.Text.4fb2ed08}" FontSize="19" FontWeight="SemiBold"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <TextBlock x:Name="VersionText" Text="夸克网盘 · 直链助手"
+                            <TextBlock x:Name="VersionText" Text="{DynamicResource String.AboutWindow.VersionText.Text.6d569ef0}"
                                        FontSize="11" Margin="0,3,0,0"
                                        Foreground="{DynamicResource TextTertiaryBrush}"/>
-                            <TextBlock Text="分享转存 · 直链解析 · 高速下载"
+                            <TextBlock Text="{DynamicResource String.AboutWindow.TextBlock.Text.1e27d0ed}"
                                        FontSize="11" Margin="0,1,0,0"
                                        Foreground="{DynamicResource TextTertiaryBrush}"/>
                         </StackPanel>
@@ -70,26 +70,26 @@
 
                     <!-- 作者 B 站（点击跳转） -->
                     <Button x:Name="BiliBtn" Click="OnBiliClick"
-                            AutomationProperties.Name="打开作者B站主页"
+                            AutomationProperties.Name="{DynamicResource String.AboutWindow.BiliBtn.AutomationName.5f879d0f}"
                             HorizontalAlignment="Left" Margin="0,10,0,0"
                             Cursor="Hand" Background="Transparent" BorderThickness="0"
                             Padding="0">
-                        <TextBlock x:Name="BiliText" Text="作者 B 站：b23.tv/gIoEfQM（点击跳转）"
+                        <TextBlock x:Name="BiliText" Text="{DynamicResource String.AboutWindow.BiliText.Text.2b961600}"
                                    FontSize="11.5" TextDecorations="Underline"
                                    Foreground="{DynamicResource PrimaryBrush}"/>
                     </Button>
 
                     <!-- 应用简介 -->
-                    <TextBlock Text="应用简介" Style="{StaticResource SectionLabel}" Margin="0,16,0,6"/>
+                    <TextBlock Text="{DynamicResource String.AboutWindow.TextBlock.Text.9b586081}" Style="{StaticResource SectionLabel}" Margin="0,16,0,6"/>
                     <TextBlock Style="{StaticResource ProseText}" TextWrapping="Wrap"
-                               Text="一款夸克网盘分享链接解析与高速下载工具。粘贴分享链接就能直接下载，也可以扫码登录后浏览、下载自己的网盘文件。"/>
+                               Text="{DynamicResource String.AboutWindow.TextBlock.Text.99668a92}"/>
 
                     <!-- 功能特性 -->
-                    <TextBlock Text="功能特性" Style="{StaticResource SectionLabel}" Margin="0,14,0,6"/>
+                    <TextBlock Text="{DynamicResource String.AboutWindow.TextBlock.Text.334a837a}" Style="{StaticResource SectionLabel}" Margin="0,14,0,6"/>
                     <StackPanel x:Name="FeatureList"/>
 
                     <!-- 赞赏支持 -->
-                    <TextBlock Text="赞赏支持" Style="{StaticResource SectionLabel}" Margin="0,16,0,8"/>
+                    <TextBlock Text="{DynamicResource String.AboutWindow.TextBlock.Text.8086ec0a}" Style="{StaticResource SectionLabel}" Margin="0,16,0,8"/>
                     <StackPanel HorizontalAlignment="Center">
                         <!-- ⚠️ 用真 Button 而不是 Border+MouseLeftButtonUp：
                              Border 没有 automation peer，**UIA 树里根本找不到它**（点不到、也测不了）；
@@ -97,8 +97,8 @@
                         <Button x:Name="QrBtn" Click="OnQrClick"
                                 Style="{StaticResource IconGhostButton}"
                                 Width="Auto" Height="Auto" Padding="0"
-                                AutomationProperties.Name="赞赏码（点击放大）"
-                                ToolTip="点击放大">
+                                AutomationProperties.Name="{DynamicResource String.AboutWindow.QrBtn.AutomationName.fe92ee1b}"
+                                ToolTip="{DynamicResource String.AboutWindow.QrBtn.ToolTip.c00971f7}">
                             <Border BorderBrush="{DynamicResource BorderBrushSoft}"
                                     BorderThickness="1" CornerRadius="8" Padding="6"
                                     Background="{DynamicResource SurfaceBrush}">
@@ -106,18 +106,18 @@
                                        RenderOptions.BitmapScalingMode="HighQuality"/>
                             </Border>
                         </Button>
-                        <TextBlock Text="点击二维码可放大 · 如果觉得好用，欢迎扫码赞赏支持"
+                        <TextBlock Text="{DynamicResource String.AboutWindow.TextBlock.Text.1fffbc74}"
                                    FontSize="10.5" Margin="0,8,0,0"
                                    HorizontalAlignment="Center"
                                    Foreground="{DynamicResource TextTertiaryBrush}"/>
-                        <TextBlock Text="七十鸽 的赞赏码" FontSize="12.5" FontWeight="SemiBold"
+                        <TextBlock Text="{DynamicResource String.AboutWindow.TextBlock.Text.8e20eede}" FontSize="12.5" FontWeight="SemiBold"
                                    Margin="0,3,0,0" HorizontalAlignment="Center"
                                    Foreground="{DynamicResource TextPrimaryBrush}"/>
                     </StackPanel>
 
                     <!-- 底部 -->
-                    <Button x:Name="OkBtn" Content="关闭" Click="OnCloseClick"
-                            AutomationProperties.Name="关闭"
+                    <Button x:Name="OkBtn" Content="{DynamicResource String.AboutWindow.OkBtn.Content.6c14bd7f}" Click="OnCloseClick"
+                            AutomationProperties.Name="{DynamicResource String.AboutWindow.OkBtn.AutomationName.6c14bd7f}"
                             Style="{StaticResource PrimaryButton}"
                             HorizontalAlignment="Right" MinWidth="96" Margin="0,18,0,0"/>
                 </StackPanel>

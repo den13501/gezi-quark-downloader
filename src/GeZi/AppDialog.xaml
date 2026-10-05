@@ -1,7 +1,7 @@
 <Window x:Class="GeZi.AppDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="提示"
+        Title="{DynamicResource String.AppDialog.Window.Title.ab3656a9}"
         SizeToContent="Height"
         Width="420"
         WindowStyle="None"
@@ -10,7 +10,7 @@
         Background="Transparent"
         ShowInTaskbar="False"
         WindowStartupLocation="CenterOwner"
-        FontFamily="Microsoft YaHei UI, Microsoft YaHei, Segoe UI"
+        FontFamily="Microsoft JhengHei UI, Microsoft JhengHei, Segoe UI"
         SnapsToDevicePixels="True">
 
     <!--
@@ -41,7 +41,7 @@
             <!-- 标题栏（可拖动） -->
             <Grid x:Name="TitleBar" Grid.Row="0" Height="44" Background="Transparent"
                   MouseLeftButtonDown="OnTitleBarDown">
-                <TextBlock x:Name="TitleText" Text="提示"
+                <TextBlock x:Name="TitleText" Text="{DynamicResource String.AppDialog.TitleText.Text.ab3656a9}"
                            Margin="20,0,44,0" VerticalAlignment="Center"
                            FontSize="13.5" FontWeight="SemiBold"
                            Foreground="{DynamicResource TextPrimaryBrush}"
@@ -50,7 +50,7 @@
                         HorizontalAlignment="Right" VerticalAlignment="Center"
                         Margin="0,0,10,0" Width="30" Height="30"
                         Style="{StaticResource CaptionCloseButton}"
-                        ToolTip="关闭">
+                        ToolTip="{DynamicResource String.AppDialog.CloseBtn.ToolTip.6c14bd7f}">
                     <Path Data="{StaticResource IconClose}" Stretch="Uniform" Width="11" Height="11"
                           Stroke="{DynamicResource TextSecondaryBrush}" StrokeThickness="1.8"
                           StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
@@ -86,7 +86,7 @@
                  放在按钮行**正上方**、右对齐 —— 就是右下角那片区域，
                  又不跟按钮挤在同一行。默认折叠，只有调用方要求时才出现。 -->
             <CheckBox x:Name="DontAskCheck" Grid.Row="2"
-                      Content="此后不再提示" Visibility="Collapsed"
+                      Content="{DynamicResource String.AppDialog.DontAskCheck.Content.8a6df287}" Visibility="Collapsed"
                       HorizontalAlignment="Right" Margin="20,16,20,0"
                       Style="{StaticResource AppCheckBox}"/>
 

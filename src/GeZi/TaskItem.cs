@@ -135,16 +135,16 @@ namespace GeZi
             {
                 switch (State)
                 {
-                    case JobState.Queued: return "排队中";
-                    case JobState.Downloading: return "下载中";
+                    case JobState.Queued: return UiText.Get("String.Code.TaskItem.19daa4a982");
+                    case JobState.Downloading: return UiText.Get("String.Code.TaskItem.c1bff92609");
                     case JobState.Paused:
                         // 暂停是渐进的（在途请求要跑完）→ 速度还没归零时显示「暂停中…」，
                         // 真正停下来（速度 0）才显示「已暂停」。
-                        return _pauseRequested && _speed > 0.5 ? "暂停中…" : "已暂停";
-                    case JobState.Completed: return "完成";
-                    case JobState.Failed: return "失败";
-                    case JobState.Cancelled: return "已取消";
-                    case JobState.Cancelling: return "取消中…";
+                        return _pauseRequested && _speed > 0.5 ? UiText.Get("String.Code.TaskItem.5a8569fb61") : UiText.Get("String.Code.TaskItem.82a3e85f96");
+                    case JobState.Completed: return UiText.Get("String.Code.TaskItem.bf394f467c");
+                    case JobState.Failed: return UiText.Get("String.Code.TaskItem.73cf34cd9b");
+                    case JobState.Cancelled: return UiText.Get("String.Code.TaskItem.6ba7eb982c");
+                    case JobState.Cancelling: return UiText.Get("String.Code.TaskItem.68dacde41a");
                     default: return "";
                 }
             }
@@ -156,7 +156,7 @@ namespace GeZi
             get
             {
                 if (State == JobState.Failed && !string.IsNullOrEmpty(Error))
-                    return "失败: " + Error;
+                    return UiText.Get("String.Code.TaskItem.644a353351") + Error;
                 return StatusText;
             }
         }

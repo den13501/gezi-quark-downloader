@@ -47,14 +47,14 @@ namespace GeZi
         /// </remarks>
         private static readonly string[] Features =
         {
-            "解析分享链接：链接、提取码、整段分享文案都能直接粘",
-            "免转存下载：不往自己网盘写中转文件，省网盘空间、不留垃圾",
-            "扫码登录：浏览「我的网盘」，支持转存与删除",
-            "高速下载：单文件最多 512 个连接，支持断点续传",
-            "两种写入方式：共写同一文件（省空间）/ 独立分片（可边下边看）",
-            "导出直链：纯直链、curl、aria2c 三种格式",
-            "多账号：可保存多个账号，随时一键切换",
-            "托盘常驻 + 悬浮小窗：窗口关掉也在后台继续下",
+            UiText.Get("String.Code.AboutWindow.xaml.a93c14bf6a"),
+            UiText.Get("String.Code.AboutWindow.xaml.22ac6b3816"),
+            UiText.Get("String.Code.AboutWindow.xaml.1bd96c1ec5"),
+            UiText.Get("String.Code.AboutWindow.xaml.3d496a44cc"),
+            UiText.Get("String.Code.AboutWindow.xaml.cbe8423ab2"),
+            UiText.Get("String.Code.AboutWindow.xaml.c713a62c26"),
+            UiText.Get("String.Code.AboutWindow.xaml.ca3ec28049"),
+            UiText.Get("String.Code.AboutWindow.xaml.4f51c3922b"),
         };
 
         public AboutWindow()
@@ -65,7 +65,7 @@ namespace GeZi
             try
             {
                 var ver = Assembly.GetExecutingAssembly().GetName().Version;
-                VersionText.Text = "夸克网盘 · 直链助手 · v" + (ver != null ? ver.ToString(3) : "2.0.0");
+                VersionText.Text = UiText.Get("String.Code.AboutWindow.xaml.cbf5538ec2") + (ver != null ? ver.ToString(3) : "2.0.0");
             }
             catch { }
 
@@ -120,7 +120,7 @@ namespace GeZi
             try
             {
                 if (!ShellLaunch.OpenUrl(BiliUrl))
-                    AppDialog.Show(this, "打开浏览器失败，请手动访问：\n\n" + BiliUrl, "打开链接");
+                    AppDialog.Show(this, UiText.Get("String.Code.AboutWindow.xaml.18109627c4") + BiliUrl, UiText.Get("String.Code.AboutWindow.xaml.d948bd90f2"));
             }
             catch { }
         }
@@ -136,7 +136,7 @@ namespace GeZi
             var win = new Window
             {
                 Owner = this,
-                Title = "赞赏支持",
+                Title = UiText.Get("String.Code.AboutWindow.xaml.c43224900a"),
                 WindowStyle = WindowStyle.None,
                 ResizeMode = ResizeMode.NoResize,
                 SizeToContent = SizeToContent.WidthAndHeight,
@@ -170,7 +170,7 @@ namespace GeZi
 
             var close = new Button
             {
-                Content = "关闭",
+                Content = UiText.Get("String.Code.AboutWindow.xaml.09614cef6c"),
                 MinWidth = 96,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = new Thickness(0, 14, 0, 0),
@@ -181,7 +181,7 @@ namespace GeZi
             var panel = new StackPanel { Margin = new Thickness(16) };
             panel.Children.Add(new TextBlock
             {
-                Text = "七十鸽 的赞赏码",
+                Text = UiText.Get("String.Code.AboutWindow.xaml.9a6465f23b"),
                 FontSize = 14,
                 FontWeight = FontWeights.SemiBold,
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -189,7 +189,7 @@ namespace GeZi
             });
             panel.Children.Add(new TextBlock
             {
-                Text = "用微信 / 支付宝扫码即可赞赏支持",
+                Text = UiText.Get("String.Code.AboutWindow.xaml.c8a128a55c"),
                 FontSize = 11,
                 Margin = new Thickness(0, 4, 0, 10),
                 HorizontalAlignment = HorizontalAlignment.Center,
