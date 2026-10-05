@@ -79,14 +79,36 @@
                                    Foreground="{DynamicResource PrimaryBrush}"/>
                     </Button>
 
+                    <!-- 开源地址（点击跳转）—— 与 B 站链接同构 -->
+                    <Button x:Name="RepoBtn" Click="OnRepoClick"
+                            AutomationProperties.Name="打开项目开源地址"
+                            HorizontalAlignment="Left" Margin="0,5,0,0"
+                            Cursor="Hand" Background="Transparent" BorderThickness="0"
+                            Padding="0">
+                        <TextBlock x:Name="RepoText"
+                                   Text="开源地址：github.com/huaotem-bot/gezi-quark-downloader"
+                                   FontSize="11.5" TextDecorations="Underline"
+                                   TextWrapping="Wrap"
+                                   Foreground="{DynamicResource PrimaryBrush}"/>
+                    </Button>
+
                     <!-- 应用简介 -->
                     <TextBlock Text="应用简介" Style="{StaticResource SectionLabel}" Margin="0,16,0,6"/>
                     <TextBlock Style="{StaticResource ProseText}" TextWrapping="Wrap"
                                Text="一款夸克网盘分享链接解析与高速下载工具。粘贴分享链接就能直接下载，也可以扫码登录后浏览、下载自己的网盘文件。"/>
+                    <TextBlock Style="{StaticResource ProseText}" TextWrapping="Wrap"
+                               Margin="0,8,0,0"><Run Text="本项目" /><Run
+                                Text="完全开源" FontWeight="SemiBold" /><Run
+                                Text="，采用 GPL-3.0 许可，全部源码公开可审计。软件无广告、无遥测、不收集任何用户数据；登录凭据仅以 Windows DPAPI 加密保存在本机，不会外传。" /></TextBlock>
 
                     <!-- 功能特性 -->
                     <TextBlock Text="功能特性" Style="{StaticResource SectionLabel}" Margin="0,14,0,6"/>
                     <StackPanel x:Name="FeatureList"/>
+
+                    <!-- 开源许可 -->
+                    <TextBlock Text="开源许可" Style="{StaticResource SectionLabel}" Margin="0,16,0,6"/>
+                    <TextBlock Style="{StaticResource ProseText}" TextWrapping="Wrap"
+                               Text="本项目基于 GNU General Public License v3.0 发布：你可以自由使用、修改和再分发，但衍生作品必须以同样的许可开源。第三方组件及其许可详见仓库内的 THIRD-PARTY-NOTICES.md。" />
 
                     <!-- 赞赏支持 -->
                     <TextBlock Text="赞赏支持" Style="{StaticResource SectionLabel}" Margin="0,16,0,8"/>

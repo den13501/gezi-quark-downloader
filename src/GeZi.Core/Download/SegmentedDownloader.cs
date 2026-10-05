@@ -1438,6 +1438,14 @@ namespace GeZi.Core.Download
             // 合并线程已合并的字节数，供 5 秒诊断日志跨线程读取
             long[] mergedBox = new long[] { mergedBytes };
 
+            // 「所有 worker 都已结束，只剩合并线程在收尾」的标志（跨线程用 Volatile 读写）。
+            //
+            // 【为什么需要】收尾阶段 done 不再增长（数据早就下完了），但磁盘 I/O 还在跑。
+            // 若进度上报线程不知道这件事，会：① 把"无数据"误判成网络停滞而主动中止；
+            // ② 界面冻结在「100% + 速度 0」，用户以为卡死（实测反馈「就显示 0 kb 不动」）。
+            // 有了这个标志，reporter 就能在收尾期改为上报「正在合并分片」并跳过停滞判定。
+            bool[] workersDoneBox = new bool[1];
+
             // ==================== 慢连接抢占：采样状态 ====================
             //
             // 按 worker 编号（不是分片编号）索引：看门狗要问的是"第 i 条连接现在跑多快"，
@@ -1695,12 +1703,40 @@ namespace GeZi.Core.Download
                     // 为什么不用滑动窗口、τ 怎么取值，见 SpeedMeter 的注释。
                     var meter = new SpeedMeter(SpeedTauSec, Interlocked.Read(ref done), DateTime.UtcNow);
 
+                    // 收尾（合并）阶段的独立速度计 —— 量的是"合并吞吐"而不是网速。
+                    // 懒创建：只有真的进入收尾才需要它。
+                    SpeedMeter mergeMeter = null;
+
                     while (!stop.IsCancellationRequested)
                     {
                         await Task.Delay(200, stop.Token).ConfigureAwait(false);
-                        long d = Interlocked.Read(ref done);
                         var now = DateTime.UtcNow;
-                        double speed = meter.Sample(d, now);
+
+                        // ---- 收尾阶段判定：worker 全结束，只剩合并线程在把分片 append 进目标文件 ----
+                        // 这期间 done 恒等于 total（不再增长），但磁盘 I/O 还在跑。
+                        // 必须区别对待：① 不能判网络停滞（否则把正常收尾当故障中止）；
+                        // ② 要上报阶段，否则界面冻结在「100% + 速度 0」，用户以为卡死。
+                        // ⚠️ 只跳过"抢占/停滞"这两类**网络侧**逻辑；
+                        //    诊断快照与每秒 SavePlan（崩溃安全）照常执行。
+                        // ⚠️ **必须同时判 mergeMode**：共写模式（SharedFile）根本没有合并阶段，
+                        //    若只看标志位，收尾那一瞬会错误地显示「正在合并分片」。
+                        bool draining = mergeMode && Volatile.Read(ref workersDoneBox[0]);
+                        long d;
+                        double speed;
+                        if (draining)
+                        {
+                            long mb = Interlocked.Read(ref mergedBox[0]);
+                            if (mergeMeter == null)
+                                mergeMeter = new SpeedMeter(SpeedTauSec, mb, now);
+                            speed = mergeMeter.Sample(mb, now);   // 收尾期展示"合并吞吐"
+                            d = Interlocked.Read(ref done);
+                            lastAdvance = now;                    // 收尾不算停滞
+                        }
+                        else
+                        {
+                            d = Interlocked.Read(ref done);
+                            speed = meter.Sample(d, now);
+                        }
 
                         // 进度上报降频（循环仍 200ms，见 ProgressReportMs 注释）：
                         // 每次 Report 都会往 UI 线程投递回调，WPF 单线程下 512 并发时
@@ -1708,13 +1744,13 @@ namespace GeZi.Core.Download
                         if ((now - lastReport).TotalMilliseconds >= ProgressReportMs)
                         {
                             lastReport = now;
-                            try { Report(progress, d, total, speed); } catch { }
+                            try { Report(progress, d, total, speed, draining ? "正在合并分片" : null); } catch { }
                         }
 
                         // ---- 慢连接抢占：每 5 秒采样一次 ----
                         // 与诊断日志同频但**独立计时**：抢占是功能性逻辑，
                         // 不该因为诊断日志将来被调整/注释掉就跟着一起停。
-                        if ((now - lastPreempt).TotalSeconds >= PreemptTickSec)
+                        if (!draining && (now - lastPreempt).TotalSeconds >= PreemptTickSec)
                         {
                             lastPreempt = now;
                             try { PreemptSlowChunks(speed); }
@@ -2357,8 +2393,16 @@ namespace GeZi.Core.Download
                 }
                 finally
                 {
-                    stop.Cancel();
-                    try { await reporter.ConfigureAwait(false); } catch { }
+                    // 【顺序很关键】先把"worker 已全部结束"告诉 reporter，
+                    // 再排空合并线程 —— 这期间 reporter 仍在跑，UI 能看到「正在合并分片」。
+                    //
+                    // 原来这里是"先 stop.Cancel() 停掉 reporter，再 await mergeTask"，
+                    // 于是整个收尾期（100GB 文件可能好几分钟）界面**完全冻结**在
+                    // 「进度 100% + 速度 0 + 状态下载中」→ 用户判定为卡死（实测反馈）。
+                    //
+                    // ⚠️ 值取 `mergeMode` 而不是恒 `true`：共写模式没有合并阶段，
+                    //    标志位若为 true，reporter 会在收尾那一瞬误报「正在合并分片」。
+                    Volatile.Write(ref workersDoneBox[0], mergeMode);
 
                     // 合并线程收尾：先让它把"已经就绪"的分片排空，再退出。
                     // 直接取消而不排空，会留下一批已经下好、却白占空间的分片文件。
@@ -2367,6 +2411,11 @@ namespace GeZi.Core.Download
                     {
                         try { await mergeTask.ConfigureAwait(false); } catch { }
                     }
+
+                    // 合并排空完了，才停进度上报线程
+                    stop.Cancel();
+                    try { await reporter.ConfigureAwait(false); } catch { }
+
                     SavePlan(metaPath, plan);
                 }
 
@@ -2542,11 +2591,18 @@ namespace GeZi.Core.Download
             return true;
         }
 
-        private static void Report(IProgress<DownloadProgress> progress, long done, long? total, double speed)
+        private static void Report(IProgress<DownloadProgress> progress, long done, long? total, double speed,
+            string phase = null)
         {
             if (progress == null)
                 return;
-            progress.Report(new DownloadProgress { Done = done, Total = total ?? 0, Speed = speed });
+            progress.Report(new DownloadProgress
+            {
+                Done = done,
+                Total = total ?? 0,
+                Speed = speed,
+                Phase = phase,
+            });
         }
 
         // ---------------- sidecar 续传元数据（简单文本格式，无 JSON 依赖） ----------------

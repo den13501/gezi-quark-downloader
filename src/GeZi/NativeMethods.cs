@@ -106,5 +106,84 @@ namespace GeZi
         internal const uint SWP_NOZORDER = 0x0004;
         internal const uint SWP_NOACTIVATE = 0x0010;
         internal const uint SWP_FRAMECHANGED = 0x0020;
+
+        // ---------------- 保活：阻止系统空闲睡眠 ----------------
+
+        /// <summary>
+        /// 告知系统"本程序正在使用中"，从而阻止**空闲自动睡眠**（以及可选地阻止息屏）。
+        ///
+        /// 【为什么需要】用户挂着下载去睡觉，若系统按电源计划进入睡眠，
+        /// 网络会断、所有连接作废 —— 这正是用户反馈"中午开着下载，下午回来全停了"的成因之一。
+        ///
+        /// 🚨 **本 API 是【线程级】的**：状态记录在**调用它的那个线程**上，
+        /// 系统只要有一个线程声明了 `ES_SYSTEM_REQUIRED` 就不会睡。
+        /// 因此在 A 线程置位、在 B 线程清除是**清不掉的**（A 的状态还在）→ 系统永不睡眠。
+        /// ⇒ **必须始终由同一个线程调用**（本项目统一用 UI 线程，见 SleepGuard）。
+        ///
+        /// ✅ 线程退出时状态自动释放 ⇒ 程序崩溃/退出**不会**留下"永不睡眠"的僵尸状态。
+        /// ✅ 不需要管理员权限。
+        ///
+        /// ⚠️ 只防**空闲自动睡眠**；**不阻止**用户手动睡眠/关机，也管不了笔记本合盖。
+        /// </summary>
+        [DllImport("kernel32.dll", SetLastError = true)]
+        internal static extern uint SetThreadExecutionState(uint esFlags);
+
+        /// <summary>与上一次的状态合并（不清除之前设置的其他标志）。</summary>
+        internal const uint ES_CONTINUOUS = 0x80000000;
+
+        /// <summary>要求系统保持可用（阻止空闲睡眠）。</summary>
+        internal const uint ES_SYSTEM_REQUIRED = 0x00000001;
+
+        /// <summary>要求显示器保持开启。⚠️ 本项目**刻意不用** —— 用户自己会关显示器，
+        /// 加上它只会白耗电。</summary>
+        internal const uint ES_DISPLAY_REQUIRED = 0x00000002;
+
+        // ---------------- 保活（Modern Standby 路径）----------------
+        //
+        // 🚨 【为什么除了 SetThreadExecutionState 还要这一套】
+        // 实测发现本机是 **Modern Standby（S0 低电量待机）**，不是传统 S3：
+        //     `powercfg -a` → "待机 (S0 低电量待机) 连接的网络"；"待机 (S3) 当支持 S0 时被禁用"
+        // `SetThreadExecutionState` 是 S3 时代的老 API，在 S0ix 上**拦不住睡眠**
+        // —— 实测挂了下载仍然睡过去了（这正是用户最初"中午开着下载下午全停了"的成因）。
+        //
+        // ✅ 正确做法是 `PowerSetRequest`：
+        //   · `PowerRequestSystemRequired`    阻止系统自动进入睡眠
+        //   · `PowerRequestExecutionRequired` 阻止 **DAM（桌面活动调节器）挂起本进程**
+        //     ← 这条是 S0ix 特有的关键：S0ix 下网络虽在，但桌面应用会被冻结。
+        // 两个一起请求才稳。
+
+        /// <summary>电源请求上下文（对应 POWER_REQUEST_CONTEXT）。</summary>
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        internal struct POWER_REQUEST_CONTEXT
+        {
+            public uint Version;
+            public uint Flags;
+            [MarshalAs(UnmanagedType.LPWStr)] public string SimpleReasonString;
+        }
+
+        /// <summary>POWER_REQUEST_CONTEXT_VERSION（当前唯一取值）。</summary>
+        internal const uint POWER_REQUEST_CONTEXT_VERSION = 0;
+
+        /// <summary>POWER_REQUEST_CONTEXT_SIMPLE_STRING —— 用简单字符串作为申请理由。</summary>
+        internal const uint POWER_REQUEST_CONTEXT_SIMPLE_STRING = 0x1;
+
+        internal const int PowerRequestDisplayRequired = 0;
+        /// <summary>阻止系统自动睡眠。</summary>
+        internal const int PowerRequestSystemRequired = 1;
+        internal const int PowerRequestAwayModeRequired = 2;
+        /// <summary>阻止 DAM 在 Modern Standby 期间挂起本进程。</summary>
+        internal const int PowerRequestExecutionRequired = 3;
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        internal static extern IntPtr PowerCreateRequest(ref POWER_REQUEST_CONTEXT Context);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        internal static extern bool PowerSetRequest(IntPtr PowerRequest, int RequestType);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        internal static extern bool PowerClearRequest(IntPtr PowerRequest, int RequestType);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        internal static extern bool CloseHandle(IntPtr hObject);
     }
 }

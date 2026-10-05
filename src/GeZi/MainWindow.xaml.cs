@@ -194,6 +194,24 @@ namespace GeZi
                 Dispatcher);
             _logFlushTimer.Start();
 
+            // ---- 保活：下载期间阻止系统空闲睡眠 ----
+            //
+            // 【为什么用独立定时器，而不是挂在 OnJobUpdate 上】
+            // 任务**卡死**时（worker 卡在掐不断的调用里 → `Task.WhenAll` 永不返回）
+            // 状态会永远停在 Downloading，而进度回调也可能就此停摆 ——
+            // 挂在回调上等于**永不复查**，电脑会整夜不睡。
+            // 独立定时器每 30 秒复查一次，卡死也能在"无进展超时"之后释放保活。
+            //
+            // 【为什么不做成开关】用户明确要求「不需要单独按钮」→ 自动跟随任务状态。
+            _sleepGuardTimer = new System.Windows.Threading.DispatcherTimer(
+                TimeSpan.FromSeconds(SleepGuardTickSec),
+                System.Windows.Threading.DispatcherPriority.Background,
+                (s, e) => RefreshSleepGuard(),
+                Dispatcher);
+            _sleepGuardTimer.Start();
+            // 把保活的状态变化写进日志 —— 用户能看到"为什么电脑没睡"（不做开关，但保留知情权）。
+            SleepGuard.Log = Log;
+
             // 「总」进度日志：把所有任务**汇总成一行**，每 10 秒最多一条。
             //
             // 【为什么要它】原来核心层是**逐任务**每 5 秒打一行
@@ -361,6 +379,10 @@ namespace GeZi
         protected override void OnClosed(EventArgs e)
         {
             try { _logFlushTimer?.Stop(); } catch { }
+            try { _sleepGuardTimer?.Stop(); } catch { }
+            // 释放保活。其实进程退出时线程级状态会自动释放，这里显式写更清楚，
+            // 也避免"关窗后进程还活着"的路径（如托盘常驻）把保活留着。
+            try { SleepGuard.Release(); } catch { }
             try { _client?.StopKeepAlive(); } catch { }
             // ⚠️ 托盘图标必须释放：不释放的话进程退出后图标会留在通知区，
             //    鼠标划过去才消失（最经典的托盘 bug）。
@@ -377,6 +399,23 @@ namespace GeZi
 
         /// <summary>日志攒批刷新器。见 <see cref="Log"/> 的注释。</summary>
         private System.Windows.Threading.DispatcherTimer _logFlushTimer;
+
+        /// <summary>保活复查定时器：有任务活跃下载时阻止系统空闲睡眠。见 <see cref="RefreshSleepGuard"/>。</summary>
+        private System.Windows.Threading.DispatcherTimer _sleepGuardTimer;
+
+        /// <summary>保活复查间隔（秒）。30 秒足够——系统空闲睡眠的阈值通常是分钟级。</summary>
+        private const int SleepGuardTickSec = 30;
+
+        /// <summary>
+        /// 「无进展超时」（分钟）：任务处于 Downloading/Queued 但这么久没有前进，
+        /// 就认定它**卡死**了，不再为它保活（让电脑照睡，下次启动会由
+        /// 「未完成的任务」对话框提醒用户）。
+        ///
+        /// 为什么是 5 分钟：核心层已有 45 秒的停滞看门狗，但那条走的是"任务失败"路径；
+        /// 这里兜的是**看门狗也掐不断**的卡死（worker 卡在不响应令牌的调用里）。
+        /// 合并阶段虽然 `Done` 不增长，但有 `Phase`（"正在合并分片"）兜底，不会被误判。
+        /// </summary>
+        private const int SleepGuardStaleMinutes = 5;
 
         /// <summary>日志刷入 UI 的间隔（毫秒）。200ms 对肉眼已近乎实时。</summary>
         private const int LogFlushMs = 200;
@@ -2289,6 +2328,8 @@ namespace GeZi
             _batchRunning = true;
             // 新任务已入队 → 合并按钮立刻切成「暂停全部」（不用等第一次进度上报）
             UpdatePauseAllButton(force: true);
+            // 立刻开启保活，别等 30 秒的定时器 —— 用户可能点完就去睡觉了
+            RefreshSleepGuard();
             try
             {
                 await scheduler.RunAllAsync(jobs, progress, CancellationToken.None);
@@ -2388,6 +2429,9 @@ namespace GeZi
                 item.Speed = u.Progress.Speed;
                 item.Done = u.Progress.Done;
                 item.Total = u.Progress.Total;
+                // 阶段说明（如「正在合并分片」）。非下载态一律清空，
+                // 免得完成/失败后还挂着「正在合并分片」这种残留文案。
+                item.Phase = u.State == JobState.Downloading ? u.Progress.Phase : null;
             }
 
             // ---- 历史记录：终态各记一条（只记一次）----
@@ -2537,6 +2581,40 @@ namespace GeZi
                 PauseAllBtn.Content = BuildToolIconText("IconPause", "暂停全部", 2.0);
                 PauseAllBtn.ToolTip = "当前没有任务";
             }
+        }
+
+        /// <summary>
+        /// 复查「保活」：有任务在**活跃地**下载就阻止系统空闲睡眠，否则释放。
+        ///
+        /// 【为什么需要】用户反馈「中午开着任务后关显示器离开了，下午再看任务全部停了」——
+        /// 系统按空闲计划睡眠会掐断所有连接，任务自然全灭。
+        ///
+        /// 【活跃的判据】状态是 Downloading/Queued，**且**满足下面任一条：
+        ///   · 最近 <see cref="SleepGuardStaleMinutes"/> 分钟内进度**真的前进过**；
+        ///   · 正在合并分片（<see cref="TaskItem.Phase"/> 非空）——
+        ///     合并期间 `Done` 不再增长，但它确实在干活，**不能当卡死**。
+        ///
+        /// 【为什么要"无进展超时"这一条】任务**卡死**时（worker 卡在掐不断的调用里、
+        /// `Task.WhenAll` 永不返回）状态会永远停在 Downloading。只看状态就会一直保活、
+        /// 电脑整夜不睡。加了超时后卡死也能正常睡 —— 未完成的任务下次启动会由
+        /// 「未完成的任务」对话框提醒用户（`SyncPending` 收 Downloading 状态）。
+        ///
+        /// ⚠️ 必须在 UI 线程调用（<see cref="SleepGuard"/> 是线程级的）。
+        /// </summary>
+        private void RefreshSleepGuard()
+        {
+            try
+            {
+                var now = DateTime.UtcNow;
+                var staleAfter = TimeSpan.FromMinutes(SleepGuardStaleMinutes);
+
+                bool active = _tasks.Any(t =>
+                    (t.State == JobState.Downloading || t.State == JobState.Queued)
+                    && (!string.IsNullOrEmpty(t.Phase) || (now - t.LastProgressUtc) < staleAfter));
+
+                SleepGuard.Set(active);
+            }
+            catch { /* 保活失败绝不能影响下载本身 */ }
         }
 
         /// <summary>工具栏按钮的「图标 + 文字」内容（与 XAML 里手写的结构一致）。</summary>
