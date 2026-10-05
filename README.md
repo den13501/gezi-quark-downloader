@@ -62,7 +62,7 @@
 
 ### 方式一：下载发行版（推荐）
 
-1. 从 [Releases](https://github.com/huaotem-bot/gezi-quark-downloader/releases) 下载 `鸽子下载-v2.1.0-win64.zip` 并解压到任意目录
+1. 从 [Releases](https://github.com/huaotem-bot/gezi-quark-downloader/releases) 下载 `GeZi-v2.1.0-win64.zip` 并解压到任意目录
 2. 双击 `GeZi.exe` 即可运行
 3. 若系统缺少 .NET Framework 4.8，Windows 会弹窗提示，按引导安装即可
 
