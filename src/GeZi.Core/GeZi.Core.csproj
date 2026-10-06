@@ -6,9 +6,9 @@
     <Nullable>disable</Nullable>
     <AssemblyName>GeZi.Core</AssemblyName>
     <RootNamespace>GeZi.Core</RootNamespace>
-    <Product>鸽子下载</Product>
-    <AssemblyTitle>鸽子下载</AssemblyTitle>
-    <Version>2.0.0</Version>
+    <Product>鴿子下載</Product>
+    <AssemblyTitle>鴿子下載</AssemblyTitle>
+    <Version>2.2.0</Version>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <!-- 【2026-10-04】PathMap：别让编译机的绝对路径（含用户名）进产物。
          不加 → `C:\Users\<用户名>\Desktop\GeZi\src\...\GeZi.Core.pdb` 被写进 dll

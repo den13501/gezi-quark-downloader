@@ -31,8 +31,13 @@ namespace GeZi.Core.Support
     /// 本类输出的格式都遵循这一原则：
     ///   1) aria2c 命令（-x/-s 取自同族项目的经验值）
     ///   2) curl 命令（-C - 断点续传）
-    ///   3) 纯链接列表（给 IDM/Motrix 等靠「复制到剪贴板」或 URL 协议的场景）
+    ///   3) 纯链接列表（给 IDM 等能自定义请求头的场景）
     ///   4) 带文件名的直链列表（文件名 + Tab + 链接，方便肉眼对照）
+    ///   5) **Motrix 图形界面用**（分段列好各字段 + 标注「粘到哪个框」）——
+    ///      Motrix 的「新建任务 → 高级」里有 User-Agent / Referer / Cookie 三个独立输入框；
+    ///      夸克直链有防盗链，**Cookie 不填就是 412**。
+    ///      直接给一行长命令的话用户得自己抠，所以这里拆成一段一段。
+    ///      ⚠️ 别把「纯直链」当成 Motrix 能用的东西 —— 它只有 URL，没有 Cookie。
     /// </summary>
     public static class LinkExporter
     {
@@ -43,6 +48,20 @@ namespace GeZi.Core.Support
             Aria2,
             /// <summary>curl 命令行（每行一条）。</summary>
             Curl,
+            /// <summary>
+            /// **Motrix 图形界面用**：把各字段**分段列好**，每段前面标注「粘到哪个框」。
+            ///
+            /// 【为什么要这个格式】Motrix 的「新建任务」里有个可展开的「高级」区，
+            /// 里面有 **User-Agent / Referer / Cookie** 三个独立输入框
+            /// （实测截图确认，不是所有版本都有）。
+            /// 夸克直链有防盗链 —— **Cookie 不填就是 412**。
+            /// 但 Cookie 混在 curl/aria2c 那种一行长命令里，用户得自己抠，
+            /// 所以这里直接拆成一段一段，逐项复制粘贴即可。
+            ///
+            /// 💡 实测结论：**夸克只校验 Cookie**（+ Referer 建议带上）。
+            ///    UA 换成 aria2 默认 / 浏览器 / 空值都是 HTTP 206，**User-Agent 可留空**。
+            /// </summary>
+            MotrixGui,
             /// <summary>纯直链，每行一条（不含 UA/Cookie）。</summary>
             PlainUrls,
             /// <summary>
@@ -82,8 +101,18 @@ namespace GeZi.Core.Support
         /// <param name="cookie">完整 Cookie 串。</param>
         /// <param name="referer">Referer，通常为 https://pan.quark.cn/。</param>
         /// <param name="format">输出格式。</param>
+        /// <param name="absoluteSaveDir">
+        /// **仅 Motrix 格式使用**：保存目录的绝对路径（如 `C:\Users\me\Downloads`）。
+        ///
+        /// 🚨 为什么必须要它：Motrix 是**独立进程**，它把 `--save-dir "."` 解析成
+        /// **它自己的工作目录**（实测落在 `D:\motrix\`，即 Motrix 安装目录！），
+        /// 而不是用户执行命令时所在的目录 —— 文件会跑到用户完全想不到的地方。
+        /// curl / aria2c 没这个问题：它们是用户在当前 shell 里直接跑的，
+        /// 相对路径天然相对用户的 cwd。
+        /// 为空时退回 `"."`（保持旧行为，不静默出错）。
+        /// </param>
         public static string Build(IList<Item> items, string ua, string cookie,
-            string referer, Format format)
+            string referer, Format format, string absoluteSaveDir = null)
         {
             var sb = new StringBuilder();
             if (items == null || items.Count == 0)
@@ -145,6 +174,32 @@ namespace GeZi.Core.Support
                         if (!string.IsNullOrEmpty(referer))
                             sb.Append(" -e \"").Append(referer).Append('"');
                         sb.AppendLine();
+                        sb.AppendLine();
+                        break;
+
+                    case Format.MotrixGui:
+                        // Motrix 图形界面：每个值单独一段，段首标注「粘到哪个框」。
+                        // 夸克直链有防盗链 —— **Cookie 不填就是 412**；UA 实测可留空。
+                        // ⚠️ 段与段之间留空行：用户要逐段选中复制，粘在一起的段落很难选准。
+                        if (sb.Length > 0)
+                        {
+                            sb.AppendLine("──────────────────────────────");
+                            sb.AppendLine();
+                        }
+                        sb.AppendLine("【文件名】→ 粘到「高级 → 文件名」（留空则自动识别）");
+                        sb.AppendLine(System.IO.Path.GetFileName(outPath));
+                        sb.AppendLine();
+                        sb.AppendLine("【链接】→ 粘到「新建任务」最上面的输入框");
+                        sb.AppendLine(it.Url);
+                        sb.AppendLine();
+                        sb.AppendLine("【Referer】→ 粘到「高级 → Referer」");
+                        sb.AppendLine(referer ?? "");
+                        sb.AppendLine();
+                        sb.AppendLine("【Cookie】→ 粘到「高级 → Cookie」   ★必填，不填会 412");
+                        sb.AppendLine(cookie ?? "");
+                        sb.AppendLine();
+                        sb.AppendLine("【User-Agent】→ 粘到「高级 → User-Agent」（可留空，实测不影响）");
+                        sb.AppendLine(ua ?? "");
                         sb.AppendLine();
                         break;
                 }

@@ -422,6 +422,7 @@
                                              Height="42"
                                              Padding="10,7,58,7"
                                              AutomationProperties.Name="{DynamicResource String.MainWindow.LinkBox.AutomationName.d4b9ba82}"
+                                             DataObject.Pasting="OnLinkBoxPasting"
                                              ToolTip="{DynamicResource String.MainWindow.LinkBox.ToolTip.654c0ccf}"/>
                                     <!-- 【2026-10-04】扫码识别：夸克分享有时只给二维码图片、不给链接。
                                          贴在输入框右侧内缘、清空按钮的左边（所以 Padding 右内边距从 34 加到 58）。
@@ -639,9 +640,14 @@
                                                 <!-- 【2026-10-03 新增】免转存下载：不往自己网盘写中转文件，
                                                      直接从分享取链。登录状态下默认走「转存→取直链」，
                                                      所以需要这个显式入口。只在分享模式有意义，
-                                                     由 OnFileListRightClick 按模式控制可见性。 -->
+                                                     由 OnFileListRightClick 按模式控制可见性。
+                                                     【2026-10-06】括号内容改为「无法续传」——
+                                                     免转存取链依赖分享的 stoken，而续传时**不会重新换 stoken**
+                                                     （全代码只在解析时取一次），stoken 过期就取不到新链，
+                                                     中途断了只能重新解析分享、从头再来。必须让用户在点之前就知道。 -->
                                                 <MenuItem x:Name="NoSaveDownloadMenuItem"
                                                           Header="{DynamicResource String.MainWindow.NoSaveDownloadMenuItem.Header.6cc7b2d3}"
+                                                          ToolTip="{DynamicResource String.MainWindow.NoSaveDownloadMenuItem.ToolTip}"
                                                           Click="OnDownloadSelectedNoSave"/>
                                                 <MenuItem Header="{DynamicResource String.MainWindow.MenuItem.Header.c6e042e0}" Click="OnFetchLinks"/>
                                                 <Separator Style="{StaticResource MenuSeparator}"/>
@@ -785,9 +791,9 @@
                                 </StackPanel>
                             </Button>
                             <!-- 【用户要求】「标红的是后方括号内的字」——
-                                 curl / aria2c 两种格式会把**登录凭证（UA + Cookie）**一起写进
+                                 curl / aria2c / Motrix 界面 三种格式会把**登录凭证（UA + Cookie）**一起写进
                                  导出文件，属于敏感内容 → 红色标在**括号里的说明文字**上
-                                 （「（后两者自带 UA 与 Cookie）」），而不是命令名本身。 -->
+                                 （「（后三者自带 UA 与 Cookie）」），而不是命令名本身。 -->
                             <TextBlock VerticalAlignment="Center" Margin="12,0,0,0"
                                        Style="{StaticResource TertiaryText}">
                                 <Run Text="{DynamicResource String.MainWindow.Run.Text.03b02cbd}"/><Run

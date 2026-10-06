@@ -25,5 +25,20 @@ namespace GeZi.Core.Download
         public double Speed { get; set; }
 
         public double Percent => Total > 0 ? (Done * 100.0 / Total) : 0.0;
+
+        /// <summary>
+        /// 当前阶段的可选说明（例如「正在合并分片」）。空串/null = 常规下载阶段。
+        /// </summary>
+        /// <remarks>
+        /// 【为什么需要这个字段】
+        /// 独立分片模式（<see cref="WriteMode.SegmentedFiles"/>）在**所有分片都下完之后**，
+        /// 还要把剩余分片按序 append 进目标文件 —— 对 100GB 的文件，这一步可能持续好几分钟。
+        /// 这段期间**没有任何网络流量**，如果不上报阶段，界面就会冻结在
+        /// 「进度 100% + 速度 0 + 状态『下载中』」，用户必然判定为卡死
+        /// （用户实测反馈：「就显示 0 kb 不动」）。
+        ///
+        /// 有了它，UI 就能显示「正在合并分片」，让用户知道程序还在干活。
+        /// </remarks>
+        public string Phase { get; set; }
     }
 }

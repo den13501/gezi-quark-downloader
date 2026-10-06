@@ -139,6 +139,8 @@ namespace GeZi.Core.Download
                         dl.Log = Log;
                         dl.Diagnostics = Diagnostics;
                         dl.LinkRefresher = job.LinkRefresher;
+                        // 免转存任务：失败文案不能说"可续传"（stoken 过期就取不到新链）
+                        dl.ResumeCannotRefresh = job.ResumeCannotRefresh;
                         var perFile = new JobProgressAdapter(job, progress);
                         var res = await dl.DownloadAsync(job.Url, job.Dest, perFile, linked.Token, job.Pause).ConfigureAwait(false);
 

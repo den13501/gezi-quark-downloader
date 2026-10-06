@@ -39,6 +39,13 @@ namespace GeZi
         /// <summary>作者 B 站主页（沿用 Flet 版那个短链）。</summary>
         private const string BiliUrl = "https://b23.tv/gIoEfQM";
 
+        /// <summary>
+        /// 项目开源地址（GitHub）。
+        /// 【为什么放显眼处】这类工具的用户最怕"来路不明的 exe"（见过太多捆绑木马的），
+        /// 源码公开是他们判断可信度的第一依据 —— 比任何"本软件无毒"的声明都有用。
+        /// </summary>
+        private const string RepoUrl = "https://github.com/huaotem-bot/gezi-quark-downloader";
+
         /// <summary>功能特性（面向普通用户，一条一句话）。</summary>
         /// <remarks>
         /// 【2026-10-03】用户提醒「怎么没在简介里写免转存功能，这不是很大的一个特点吗」——
@@ -65,7 +72,7 @@ namespace GeZi
             try
             {
                 var ver = Assembly.GetExecutingAssembly().GetName().Version;
-                VersionText.Text = UiText.Get("String.Code.AboutWindow.xaml.cbf5538ec2") + (ver != null ? ver.ToString(3) : "2.0.0");
+                VersionText.Text = UiText.Get("String.Code.AboutWindow.xaml.cbf5538ec2") + (ver != null ? ver.ToString(3) : "2.2.0");
             }
             catch { }
 
@@ -121,6 +128,17 @@ namespace GeZi
             {
                 if (!ShellLaunch.OpenUrl(BiliUrl))
                     AppDialog.Show(this, UiText.Get("String.Code.AboutWindow.xaml.18109627c4") + BiliUrl, UiText.Get("String.Code.AboutWindow.xaml.d948bd90f2"));
+            }
+            catch { }
+        }
+
+        /// <summary>点「开源地址」→ 用默认浏览器打开 GitHub 仓库。</summary>
+        private void OnRepoClick(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (!ShellLaunch.OpenUrl(RepoUrl))
+                    AppDialog.Show(this, UiText.Get("String.Code.AboutWindow.xaml.18109627c4") + RepoUrl, UiText.Get("String.Code.AboutWindow.xaml.d948bd90f2"));
             }
             catch { }
         }

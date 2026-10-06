@@ -79,14 +79,36 @@
                                    Foreground="{DynamicResource PrimaryBrush}"/>
                     </Button>
 
+                    <!-- 开源地址（点击跳转）—— 与 B 站链接同构 -->
+                    <Button x:Name="RepoBtn" Click="OnRepoClick"
+                            AutomationProperties.Name="{DynamicResource String.AboutWindow.RepoBtn.AutomationName}"
+                            HorizontalAlignment="Left" Margin="0,5,0,0"
+                            Cursor="Hand" Background="Transparent" BorderThickness="0"
+                            Padding="0">
+                        <TextBlock x:Name="RepoText"
+                                   Text="{DynamicResource String.AboutWindow.RepoText.Text}"
+                                   FontSize="11.5" TextDecorations="Underline"
+                                   TextWrapping="Wrap"
+                                   Foreground="{DynamicResource PrimaryBrush}"/>
+                    </Button>
+
                     <!-- 应用简介 -->
                     <TextBlock Text="{DynamicResource String.AboutWindow.TextBlock.Text.9b586081}" Style="{StaticResource SectionLabel}" Margin="0,16,0,6"/>
                     <TextBlock Style="{StaticResource ProseText}" TextWrapping="Wrap"
                                Text="{DynamicResource String.AboutWindow.TextBlock.Text.99668a92}"/>
+                    <TextBlock Style="{StaticResource ProseText}" TextWrapping="Wrap"
+                               Margin="0,8,0,0"><Run Text="{DynamicResource String.AboutWindow.OpenSourcePrefix}"/><Run
+                                Text="{DynamicResource String.AboutWindow.OpenSourceEmphasis}" FontWeight="SemiBold"/><Run
+                                Text="{DynamicResource String.AboutWindow.OpenSourceSuffix}"/></TextBlock>
 
                     <!-- 功能特性 -->
                     <TextBlock Text="{DynamicResource String.AboutWindow.TextBlock.Text.334a837a}" Style="{StaticResource SectionLabel}" Margin="0,14,0,6"/>
                     <StackPanel x:Name="FeatureList"/>
+
+                    <!-- 开源许可 -->
+                    <TextBlock Text="{DynamicResource String.AboutWindow.LicenseHeading}" Style="{StaticResource SectionLabel}" Margin="0,16,0,6"/>
+                    <TextBlock Style="{StaticResource ProseText}" TextWrapping="Wrap"
+                               Text="{DynamicResource String.AboutWindow.LicenseText}" />
 
                     <!-- 赞赏支持 -->
                     <TextBlock Text="{DynamicResource String.AboutWindow.TextBlock.Text.8086ec0a}" Style="{StaticResource SectionLabel}" Margin="0,16,0,8"/>

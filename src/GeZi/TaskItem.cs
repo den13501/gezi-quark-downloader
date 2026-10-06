@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+using System;
 using System.ComponentModel;
 using GeZi.Core.Download;
 
@@ -80,6 +81,25 @@ namespace GeZi
             set { _percent = value; OnChanged(nameof(Percent)); OnChanged(nameof(PercentText)); }
         }
 
+        /// <summary>
+        /// 当前阶段说明（来自核心层的 <see cref="GeZi.Core.Download.DownloadProgress.Phase"/>）。
+        /// 空串 = 常规下载阶段。非空时 <see cref="StatusText"/> 直接显示它
+        /// （例如「正在合并分片」），避免收尾期界面看起来像卡死。
+        /// </summary>
+        private string _phase = "";
+        public string Phase
+        {
+            get => _phase;
+            set
+            {
+                var v = value ?? "";
+                if (v == _phase) return;          // 每 500ms 上报一次，值不变就别刷 UI
+                _phase = v;
+                OnChanged(nameof(Phase));
+                OnChanged(nameof(StatusText));
+            }
+        }
+
         private double _speed;
         public double Speed
         {
@@ -119,8 +139,29 @@ namespace GeZi
         public long Done
         {
             get => _done;
-            set { _done = value; OnChanged(nameof(DoneText)); }
+            set
+            {
+                // 只有【值真的变化】才刷新时间戳。
+                // 进度回调每 500ms 就来一次，若无条件刷新，LastProgressUtc 永远是"刚刚"，
+                // 保活那边的"无进展超时"就永远判不出来（卡死的任务会被当成还在跑）。
+                if (value != _done)
+                {
+                    _done = value;
+                    LastProgressUtc = DateTime.UtcNow;
+                }
+                OnChanged(nameof(DoneText));
+            }
         }
+
+        /// <summary>
+        /// 最近一次**进度真的前进**的时刻（UTC）。
+        ///
+        /// 供 <see cref="SleepGuard"/> 的「无进展超时」判定使用：
+        /// 任务卡死时（worker 卡在掐不断的调用里、`Task.WhenAll` 永不返回）
+        /// 状态会**永远停在 Downloading**，仅看状态无法区分"在下载"和"卡死了"，
+        /// 必须靠"多久没进展"来兜底，否则电脑会整夜不睡。
+        /// </summary>
+        public DateTime LastProgressUtc { get; private set; } = DateTime.UtcNow;
 
         private long _total;
         public long Total
@@ -136,7 +177,11 @@ namespace GeZi
                 switch (State)
                 {
                     case JobState.Queued: return UiText.Get("String.Code.TaskItem.19daa4a982");
-                    case JobState.Downloading: return UiText.Get("String.Code.TaskItem.c1bff92609");
+                    case JobState.Downloading:
+                        // 收尾（合并分片）阶段：核心层会上报阶段说明。
+                        // 这段**没有任何网络流量**、速度自然为 0，若仍显示「下载中」+ 0 速度，
+                        // 用户会以为程序卡死（实测反馈「就显示 0 kb 不动」）。
+                        return string.IsNullOrEmpty(_phase) ? UiText.Get("String.Code.TaskItem.c1bff92609") : UiText.GetPhase(_phase);
                     case JobState.Paused:
                         // 暂停是渐进的（在途请求要跑完）→ 速度还没归零时显示「暂停中…」，
                         // 真正停下来（速度 0）才显示「已暂停」。
@@ -161,7 +206,25 @@ namespace GeZi
             }
         }
 
-        public string PercentText => _percent.ToString("F1") + "%";
+        /// <summary>
+        /// 百分比文本。
+        ///
+        /// 🚨 【2026-10-06 修】**必须截断，不能四舍五入** ——
+        /// 原来直接 `ToString("F1")`，于是 99.95% 会被舍入成「**100.0%**」：
+        /// 用户看到 100% 却还在跑、文件也没下完（实测反馈：「明明9gb只下了8.99gb却显示100%」）。
+        /// 改成先向下取整到 0.1 再格式化 ⇒ 只有**真正** 100% 才会显示 100.0%。
+        /// </summary>
+        public string PercentText
+        {
+            get
+            {
+                if (_percent >= 100.0)
+                    return "100.0%";
+                double truncated = Math.Floor(_percent * 10.0) / 10.0;
+                if (truncated < 0) truncated = 0;
+                return truncated.ToString("F1") + "%";
+            }
+        }
 
         /// <summary>
         /// 速度文本。只有在"下载中"才展示速度，其余状态返回空串——

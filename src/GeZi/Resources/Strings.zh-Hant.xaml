@@ -4,6 +4,13 @@
     <!-- Fixed Traditional Chinese (Taiwan) UI strings. -->
     <sys:String x:Key="String.AboutWindow.BiliBtn.AutomationName.5f879d0f">開啟作者B站首頁</sys:String>
     <sys:String x:Key="String.AboutWindow.BiliText.Text.2b961600">作者 B 站：b23.tv/gIoEfQM（按一下跳轉）</sys:String>
+    <sys:String x:Key="String.AboutWindow.RepoBtn.AutomationName">開啟專案原始碼網址</sys:String>
+    <sys:String x:Key="String.AboutWindow.RepoText.Text">原始碼網址：github.com/huaotem-bot/gezi-quark-downloader</sys:String>
+    <sys:String x:Key="String.AboutWindow.OpenSourcePrefix">本專案</sys:String>
+    <sys:String x:Key="String.AboutWindow.OpenSourceEmphasis">完全開源</sys:String>
+    <sys:String x:Key="String.AboutWindow.OpenSourceSuffix">，採用 GPL-3.0 授權，全部原始碼公開可供稽核。軟體無廣告、無遙測，也不收集任何使用者資料；登入憑證只會以 Windows DPAPI 加密儲存在本機，不會外傳。</sys:String>
+    <sys:String x:Key="String.AboutWindow.LicenseHeading">開源授權</sys:String>
+    <sys:String x:Key="String.AboutWindow.LicenseText">本專案依 GNU General Public License v3.0 發布：你可以自由使用、修改及再次散布，但衍生作品必須以相同授權開源。第三方元件及其授權詳見儲存庫內的 THIRD-PARTY-NOTICES.md。</sys:String>
     <sys:String x:Key="String.AboutWindow.CloseBtn.AutomationName.6c14bd7f">關閉</sys:String>
     <sys:String x:Key="String.AboutWindow.CloseBtn.ToolTip.6c14bd7f">關閉</sys:String>
     <sys:String x:Key="String.AboutWindow.OkBtn.AutomationName.6c14bd7f">關閉</sys:String>
@@ -34,7 +41,7 @@
     <sys:String x:Key="String.Code.AboutWindow.xaml.9a6465f23b">七十鴿 的贊賞碼</sys:String>
     <sys:String x:Key="String.Code.AboutWindow.xaml.a93c14bf6a">解析分享連結：連結、提取碼、整段分享文案都能直接貼上</sys:String>
     <sys:String x:Key="String.Code.AboutWindow.xaml.c43224900a">贊賞支持</sys:String>
-    <sys:String x:Key="String.Code.AboutWindow.xaml.c713a62c26">匯出直鏈：純直鏈、curl、aria2c 三種格式</sys:String>
+    <sys:String x:Key="String.Code.AboutWindow.xaml.c713a62c26">匯出直鏈：純直鏈、curl、aria2c、Motrix 介面四種格式</sys:String>
     <sys:String x:Key="String.Code.AboutWindow.xaml.c8a128a55c">用微信 / 支付寶掃碼即可贊賞支持</sys:String>
     <sys:String x:Key="String.Code.AboutWindow.xaml.ca3ec28049">多帳號：可儲存多個帳號，隨時快速切換</sys:String>
     <sys:String x:Key="String.Code.AboutWindow.xaml.cbe8423ab2">兩種寫入方式：共寫同一檔案（省空間）/ 獨立分片（可邊下邊看）</sys:String>
@@ -487,6 +494,10 @@
     <sys:String x:Key="String.Code.ScanQrWindow.dd4aba0b2b">· 截圖後按 Ctrl+V 直接貼上（最快）&#xA;</sys:String>
     <sys:String x:Key="String.Code.ScanQrWindow.f83293a368">· 把圖片檔案拖到本視窗</sys:String>
     <sys:String x:Key="String.Code.ShareFileItem.85f7b0ce98">計算中…</sys:String>
+    <sys:String x:Key="String.Code.SleepGuard.PowerReason">GeZi：正在下載，需要讓系統保持運作</sys:String>
+    <sys:String x:Key="String.Code.SleepGuard.Failed">無法阻止系統休眠（不影響下載）。</sys:String>
+    <sys:String x:Key="String.Code.SleepGuard.Enabled">有工作正在下載，已阻止系統休眠（工作完成後會自動恢復）。</sys:String>
+    <sys:String x:Key="String.Code.SleepGuard.Disabled">所有工作皆已結束，已恢復系統自動休眠。</sys:String>
     <sys:String x:Key="String.Code.TaskItem.19daa4a982">排隊中</sys:String>
     <sys:String x:Key="String.Code.TaskItem.5a8569fb61">暫停中…</sys:String>
     <sys:String x:Key="String.Code.TaskItem.644a353351">失敗: </sys:String>
@@ -496,6 +507,8 @@
     <sys:String x:Key="String.Code.TaskItem.82a3e85f96">已暫停</sys:String>
     <sys:String x:Key="String.Code.TaskItem.bf394f467c">完成</sys:String>
     <sys:String x:Key="String.Code.TaskItem.c1bff92609">下載中</sys:String>
+    <sys:String x:Key="String.Code.TaskItem.MergingParts">正在合併分片</sys:String>
+    <sys:String x:Key="String.Code.MainWindow.xaml.MotrixGui">Motrix 介面</sys:String>
     <sys:String x:Key="String.Code.TrayIcon.3ed590ec10">顯示主視窗</sys:String>
     <sys:String x:Key="String.Code.TrayIcon.b499f2f1a4">結束程式</sys:String>
     <sys:String x:Key="String.Code.TrayIcon.c840f27b18">恢復全部</sys:String>
@@ -560,15 +573,16 @@
     <sys:String x:Key="String.MainWindow.MenuItem.Header.e2f996a0">在資源管理器中定位</sys:String>
     <sys:String x:Key="String.MainWindow.MinBtn.AutomationName.ca8223c5">最小化</sys:String>
     <sys:String x:Key="String.MainWindow.MinBtn.ToolTip.ca8223c5">最小化</sys:String>
-    <sys:String x:Key="String.MainWindow.NoSaveDownloadMenuItem.Header.6cc7b2d3">免轉存下載（不寫入網盤）</sys:String>
+    <sys:String x:Key="String.MainWindow.NoSaveDownloadMenuItem.Header.6cc7b2d3">免轉存下載（無法續傳）</sys:String>
+    <sys:String x:Key="String.MainWindow.NoSaveDownloadMenuItem.ToolTip">不會將暫存檔案寫入自己的網盤，可節省網盤空間。&#xA;但中斷後無法續傳——分享憑證過期後便無法取得新連結，只能重新解析分享並從頭下載。</sys:String>
     <sys:String x:Key="String.MainWindow.OpenPartsRootBtn.ToolTip.278f2547">在資源管理器中開啟分片/快取根目錄。</sys:String>
     <sys:String x:Key="String.MainWindow.OpenTaskDirBtn.ToolTip.f223e430">在資源管理器中開啟下載目錄</sys:String>
     <sys:String x:Key="String.MainWindow.ParseBtn.Content.af57b02c">解析</sys:String>
     <sys:String x:Key="String.MainWindow.PartsRootBox.ToolTip.c4a7836b">留空 = 分片與目標檔案同目錄（預設）。指定後可把分片集中到另一塊盤（如 SSD）。</sys:String>
     <sys:String x:Key="String.MainWindow.PassBox.AutomationName.6a9a493a">提取碼輸入框</sys:String>
     <sys:String x:Key="String.MainWindow.RecheckPlayerBtn.Content.7bdecac3">重新偵測</sys:String>
-    <sys:String x:Key="String.MainWindow.Run.Text.03b02cbd">取得直鏈後可匯出為 純直鏈 / curl 命令 / aria2c 命令 </sys:String>
-    <sys:String x:Key="String.MainWindow.Run.Text.0c496f52">（後兩者自帶 UA 與 Cookie）</sys:String>
+    <sys:String x:Key="String.MainWindow.Run.Text.03b02cbd">取得直鏈後可匯出為 純直鏈 / curl 命令 / aria2c 命令 / Motrix 介面 </sys:String>
+    <sys:String x:Key="String.MainWindow.Run.Text.0c496f52">（後三者自帶 UA 與 Cookie）</sys:String>
     <sys:String x:Key="String.MainWindow.ScanQrBtn.AutomationName.17f1ae81">識別 QR Code</sys:String>
     <sys:String x:Key="String.MainWindow.ScanQrBtn.ToolTip.29a80ac2">識別 QR Code：把夸克分享 QR Code 圖片識別成連結（也可直接 Ctrl+V 貼上截圖）</sys:String>
     <sys:String x:Key="String.MainWindow.ShareModeRadio.Content.a589f435">分享連結</sys:String>

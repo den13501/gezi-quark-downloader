@@ -36,6 +36,7 @@ using GeZi.Core.Api;
 using GeZi.Core.Download;
 using GeZi.Core.Models;
 using GeZi.Core.Support;
+using System.Text.RegularExpressions;
 
 // 说明：MainWindow 里既有 XAML 生成的字段，也有代码动态构建的窗口（如续传询问、
 // 诊断面板）。动态构建需要 System.Windows.Controls 下的 Grid/Button/ListBox 等，
@@ -193,6 +194,24 @@ namespace GeZi
                 (s, e) => FlushLogs(),
                 Dispatcher);
             _logFlushTimer.Start();
+
+            // ---- 保活：下载期间阻止系统空闲睡眠 ----
+            //
+            // 【为什么用独立定时器，而不是挂在 OnJobUpdate 上】
+            // 任务**卡死**时（worker 卡在掐不断的调用里 → `Task.WhenAll` 永不返回）
+            // 状态会永远停在 Downloading，而进度回调也可能就此停摆 ——
+            // 挂在回调上等于**永不复查**，电脑会整夜不睡。
+            // 独立定时器每 30 秒复查一次，卡死也能在"无进展超时"之后释放保活。
+            //
+            // 【为什么不做成开关】用户明确要求「不需要单独按钮」→ 自动跟随任务状态。
+            _sleepGuardTimer = new System.Windows.Threading.DispatcherTimer(
+                TimeSpan.FromSeconds(SleepGuardTickSec),
+                System.Windows.Threading.DispatcherPriority.Background,
+                (s, e) => RefreshSleepGuard(),
+                Dispatcher);
+            _sleepGuardTimer.Start();
+            // 把保活的状态变化写进日志 —— 用户能看到"为什么电脑没睡"（不做开关，但保留知情权）。
+            SleepGuard.Log = Log;
 
             // 「总」进度日志：把所有任务**汇总成一行**，每 10 秒最多一条。
             //
@@ -369,6 +388,10 @@ namespace GeZi
             }
             catch { }
             try { _logFlushTimer?.Stop(); } catch { }
+            try { _sleepGuardTimer?.Stop(); } catch { }
+            // 释放保活。其实进程退出时线程级状态会自动释放，这里显式写更清楚，
+            // 也避免"关窗后进程还活着"的路径（如托盘常驻）把保活留着。
+            try { SleepGuard.Release(); } catch { }
             try { _client?.StopKeepAlive(); } catch { }
             // ⚠️ 托盘图标必须释放：不释放的话进程退出后图标会留在通知区，
             //    鼠标划过去才消失（最经典的托盘 bug）。
@@ -385,6 +408,23 @@ namespace GeZi
 
         /// <summary>日志攒批刷新器。见 <see cref="Log"/> 的注释。</summary>
         private System.Windows.Threading.DispatcherTimer _logFlushTimer;
+
+        /// <summary>保活复查定时器：有任务活跃下载时阻止系统空闲睡眠。见 <see cref="RefreshSleepGuard"/>。</summary>
+        private System.Windows.Threading.DispatcherTimer _sleepGuardTimer;
+
+        /// <summary>保活复查间隔（秒）。30 秒足够——系统空闲睡眠的阈值通常是分钟级。</summary>
+        private const int SleepGuardTickSec = 30;
+
+        /// <summary>
+        /// 「无进展超时」（分钟）：任务处于 Downloading/Queued 但这么久没有前进，
+        /// 就认定它**卡死**了，不再为它保活（让电脑照睡，下次启动会由
+        /// 「未完成的任务」对话框提醒用户）。
+        ///
+        /// 为什么是 5 分钟：核心层已有 45 秒的停滞看门狗，但那条走的是"任务失败"路径；
+        /// 这里兜的是**看门狗也掐不断**的卡死（worker 卡在不响应令牌的调用里）。
+        /// 合并阶段虽然 `Done` 不增长，但有 `Phase`（"正在合并分片"）兜底，不会被误判。
+        /// </summary>
+        private const int SleepGuardStaleMinutes = 5;
 
         /// <summary>日志刷入 UI 的间隔（毫秒）。200ms 对肉眼已近乎实时。</summary>
         private const int LogFlushMs = 200;
@@ -810,6 +850,58 @@ namespace GeZi
             {
                 Log(UiText.Get("String.Code.MainWindow.xaml.4fd2096ec4") + ex.Message);
             }
+        }
+
+        /// <summary>
+        /// 【粘贴时自动精简】用户常把夸克分享的**整段文案**粘进来，形如：
+        /// 「我用夸克网盘给你分享了「xxx.pdf」，点击链接或复制整段内容，打开「夸克APP」即可获取。
+        ///   链接：https://pan.quark.cn/s/20ef19d26112  提取码：abcd」
+        ///
+        /// 🚨 为什么必须拦一下：`LinkBox` 是**单行、42px、横向滚动条 Disabled** 的输入框，
+        /// 整段文案（近百字符）塞进去后**只能看到开头那截**，链接被挤出可视区域 ——
+        /// 用户会以为"链接不见了"（真实反馈）。
+        /// 其实解析本身没问题（`ShareUrlParser` 能正确提取），是**看不见**造成的误会。
+        ///
+        /// 所以粘贴时直接把内容替换成「裸链接」，并把文案里带的提取码顺手填进 `PassBox`。
+        /// 找不到分享链接时**原样粘贴**，绝不吞掉用户的内容。
+        /// </summary>
+        private void OnLinkBoxPasting(object sender, DataObjectPastingEventArgs e)
+        {
+            try
+            {
+                if (!e.SourceDataObject.GetDataPresent(DataFormats.UnicodeText))
+                    return;
+                string text = e.SourceDataObject.GetData(DataFormats.UnicodeText) as string;
+                if (string.IsNullOrEmpty(text))
+                    return;
+
+                // 先尝试从文案里**原样抠出 URL**（保留 fid / 查询串等），比按 PwdId 重建更保真。
+                var m = Regex.Match(text, @"https?://[^\s""'<>）】\]]+");
+                string url = null;
+                if (m.Success && m.Value.IndexOf("/s/", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    url = m.Value;
+                }
+                else
+                {
+                    // 退路：按解析出的 PwdId 重建（应对"只有纯文本、URL 被截断"等情况）
+                    var info = ShareUrlParser.Parse(text);
+                    if (!string.IsNullOrEmpty(info.PwdId))
+                        url = "https://pan.quark.cn/s/" + info.PwdId;
+                }
+
+                if (string.IsNullOrEmpty(url))
+                    return;   // 不是分享链接 → 原样粘贴，别动用户的东西
+
+                // 用替换后的数据对象覆盖本次粘贴内容
+                e.DataObject = new DataObject(DataFormats.UnicodeText, url);
+
+                // 文案里带提取码时顺手填上（用户看得见"用了什么码"，解析失败时好排查）
+                var info2 = ShareUrlParser.Parse(text);
+                if (!string.IsNullOrEmpty(info2.Passcode) && string.IsNullOrEmpty(PassBox.Text.Trim()))
+                    PassBox.Text = info2.Passcode;
+            }
+            catch { /* 粘贴绝不因为这里出错而失败 */ }
         }
 
         private async void OnParseClick(object sender, RoutedEventArgs e)
@@ -1461,21 +1553,24 @@ namespace GeZi
             var tabPlain = DialogChrome.FileTab(UiText.Get("String.Code.MainWindow.xaml.7e948b3bba"), LinkExporter.Format.Labeled);
             var tabCurl = DialogChrome.FileTab(UiText.Get("String.Code.MainWindow.xaml.8516bcb8cb"), LinkExporter.Format.Curl);
             var tabAria = DialogChrome.FileTab(UiText.Get("String.Code.MainWindow.xaml.5ca576e248"), LinkExporter.Format.Aria2);
+            var tabMotrix = DialogChrome.FileTab(UiText.Get("String.Code.MainWindow.xaml.MotrixGui"), LinkExporter.Format.MotrixGui);
             // 【用户要求】「后两者自带 UA 与 Cookie，把它的颜色改红」。
-            // curl / aria2c 两种格式会把**登录凭证（UA + Cookie）**一起写进导出文件，
+            // curl / aria2c / Motrix 界面 三种格式会把**登录凭证（UA + Cookie）**一起写进导出文件，
             // 属于敏感内容 → 用警示红标出来，和下载页那行提示保持同一套语义色。
             // ⚠️ 这里用的是**本地值**：WPF 里本地值优先级高于样式触发器，
             //    所以 FileTabItem 那个「选中变主色」的触发器不会把红色覆盖掉 ——
-            //    正是我们要的（这两个页签任何状态下都是红的）。
+            //    正是我们要的（这几个页签任何状态下都是红的）。
             var warnBrush = TryFindResource("DangerBrush") as Brush;
             if (warnBrush != null)
             {
                 tabCurl.Foreground = warnBrush;
                 tabAria.Foreground = warnBrush;
+                tabMotrix.Foreground = warnBrush;
             }
             tabBar.Children.Add(tabPlain);
             tabBar.Children.Add(tabCurl);
             tabBar.Children.Add(tabAria);
+            tabBar.Children.Add(tabMotrix);
 
             // 互斥 + 默认选中「纯直链」（原首位按钮的位置）
             LinkExporter.Format chosen = LinkExporter.Format.Labeled;
@@ -1484,6 +1579,7 @@ namespace GeZi
                 tabPlain.IsChecked = chosen == LinkExporter.Format.Labeled;
                 tabCurl.IsChecked = chosen == LinkExporter.Format.Curl;
                 tabAria.IsChecked = chosen == LinkExporter.Format.Aria2;
+                tabMotrix.IsChecked = chosen == LinkExporter.Format.MotrixGui;
             };
 
             // ===== 切换种类时的加载指示 =====
@@ -1513,6 +1609,7 @@ namespace GeZi
             tabPlain.Click += (s, e) => { _ = switchTo(LinkExporter.Format.Labeled, UiText.Get("String.Code.MainWindow.xaml.7e948b3bba")); };
             tabCurl.Click += (s, e) => { _ = switchTo(LinkExporter.Format.Curl, UiText.Get("String.Code.MainWindow.xaml.8516bcb8cb")); };
             tabAria.Click += (s, e) => { _ = switchTo(LinkExporter.Format.Aria2, UiText.Get("String.Code.MainWindow.xaml.5ca576e248")); };
+            tabMotrix.Click += (s, e) => { _ = switchTo(LinkExporter.Format.MotrixGui, UiText.Get("String.Code.MainWindow.xaml.MotrixGui")); };
             syncTabs();
 
             var list = DialogChrome.StyledList();
@@ -1599,7 +1696,11 @@ namespace GeZi
             }
 
             string text = LinkExporter.Build(list, QuarkConstants.DlUa,
-                _client.CookieStr, QuarkConstants.Referer, format);
+                _client.CookieStr, QuarkConstants.Referer, format,
+                // 【仅 Motrix 格式用】必须是绝对路径：Motrix 是独立进程，
+                // 它把 "." 解析成【它自己的工作目录】（实测落到了 D:\motrix\ 安装目录），
+                // 不是用户执行命令时所在的目录。curl/aria2c 没这问题（用户自己在 shell 里跑）。
+                absoluteSaveDir: _settings.OutDir);
             if (string.IsNullOrEmpty(text))
             {
                 Log(UiText.Get("String.Code.MainWindow.xaml.5e6509f4ca"));
@@ -1640,6 +1741,7 @@ namespace GeZi
             {
                 case LinkExporter.Format.Aria2: return UiText.Get("String.Code.MainWindow.xaml.5ca576e248");
                 case LinkExporter.Format.Curl: return UiText.Get("String.Code.MainWindow.xaml.8516bcb8cb");
+                case LinkExporter.Format.MotrixGui: return UiText.Get("String.Code.MainWindow.xaml.MotrixGui");
                 case LinkExporter.Format.Labeled: return UiText.Get("String.Code.MainWindow.xaml.7e948b3bba");
                 default: return UiText.Get("String.Code.MainWindow.xaml.7e948b3bba");
             }
@@ -1730,6 +1832,8 @@ namespace GeZi
                     WriteMode = _settings.WriteMode,
                     PartsRoot = string.IsNullOrWhiteSpace(_settings.PartsRoot) ? null : _settings.PartsRoot,
                     LinkRefresher = ct => RefreshLinkAsync(item, ct),
+                    // 免转存（从分享直接取链）→ 续传取不到新链，失败文案别承诺"可续传"
+                    ResumeCannotRefresh = item.FromShare,
                     Pending = new PendingInfo
                     {
                         PwdId = _pwdId, Stoken = _stoken, Passcode = PassBox.Text,
@@ -1840,6 +1944,8 @@ namespace GeZi
                         // 直链带时效签名，长任务下到一半会过期。
                         // 给下载器一个"重新取链"的口子，它就能自动换链续传，而不是整个任务失败。
                         LinkRefresher = ct => RefreshLinkAsync(item, ct),
+                        // 免转存（从分享直接取链）→ 续传取不到新链，失败文案别承诺"可续传"
+                        ResumeCannotRefresh = item.FromShare,
                         // 续传上下文：写进「未完成任务」记录后，程序重启也能重取链接着下。
                         Pending = new PendingInfo
                         {
@@ -2297,6 +2403,8 @@ namespace GeZi
             _batchRunning = true;
             // 新任务已入队 → 合并按钮立刻切成「暂停全部」（不用等第一次进度上报）
             UpdatePauseAllButton(force: true);
+            // 立刻开启保活，别等 30 秒的定时器 —— 用户可能点完就去睡觉了
+            RefreshSleepGuard();
             try
             {
                 await scheduler.RunAllAsync(jobs, progress, CancellationToken.None);
@@ -2396,6 +2504,9 @@ namespace GeZi
                 item.Speed = u.Progress.Speed;
                 item.Done = u.Progress.Done;
                 item.Total = u.Progress.Total;
+                // 阶段说明（如「正在合并分片」）。非下载态一律清空，
+                // 免得完成/失败后还挂着「正在合并分片」这种残留文案。
+                item.Phase = u.State == JobState.Downloading ? u.Progress.Phase : null;
             }
 
             // ---- 历史记录：终态各记一条（只记一次）----
@@ -2545,6 +2656,40 @@ namespace GeZi
                 PauseAllBtn.Content = BuildToolIconText("IconPause", UiText.Get("String.Code.MainWindow.xaml.e19da1d1e5"), 2.0);
                 PauseAllBtn.ToolTip = UiText.Get("String.Code.MainWindow.xaml.a081ac98bd");
             }
+        }
+
+        /// <summary>
+        /// 复查「保活」：有任务在**活跃地**下载就阻止系统空闲睡眠，否则释放。
+        ///
+        /// 【为什么需要】用户反馈「中午开着任务后关显示器离开了，下午再看任务全部停了」——
+        /// 系统按空闲计划睡眠会掐断所有连接，任务自然全灭。
+        ///
+        /// 【活跃的判据】状态是 Downloading/Queued，**且**满足下面任一条：
+        ///   · 最近 <see cref="SleepGuardStaleMinutes"/> 分钟内进度**真的前进过**；
+        ///   · 正在合并分片（<see cref="TaskItem.Phase"/> 非空）——
+        ///     合并期间 `Done` 不再增长，但它确实在干活，**不能当卡死**。
+        ///
+        /// 【为什么要"无进展超时"这一条】任务**卡死**时（worker 卡在掐不断的调用里、
+        /// `Task.WhenAll` 永不返回）状态会永远停在 Downloading。只看状态就会一直保活、
+        /// 电脑整夜不睡。加了超时后卡死也能正常睡 —— 未完成的任务下次启动会由
+        /// 「未完成的任务」对话框提醒用户（`SyncPending` 收 Downloading 状态）。
+        ///
+        /// ⚠️ 必须在 UI 线程调用（<see cref="SleepGuard"/> 是线程级的）。
+        /// </summary>
+        private void RefreshSleepGuard()
+        {
+            try
+            {
+                var now = DateTime.UtcNow;
+                var staleAfter = TimeSpan.FromMinutes(SleepGuardStaleMinutes);
+
+                bool active = _tasks.Any(t =>
+                    (t.State == JobState.Downloading || t.State == JobState.Queued)
+                    && (!string.IsNullOrEmpty(t.Phase) || (now - t.LastProgressUtc) < staleAfter));
+
+                SleepGuard.Set(active);
+            }
+            catch { /* 保活失败绝不能影响下载本身 */ }
         }
 
         /// <summary>工具栏按钮的「图标 + 文字」内容（与 XAML 里手写的结构一致）。</summary>
@@ -3964,6 +4109,8 @@ namespace GeZi
                         };
                         var captured = job;
                         job.LinkRefresher = ct => RefreshLinkAsyncForPending(captured, ct);
+                        // 免转存任务续传取不到新链（stoken 过期）→ 失败文案要说"需重新解析分享"
+                        job.ResumeCannotRefresh = p.FromShare;
                         jobs.Add(job);
                     }
                     catch (Exception ex)

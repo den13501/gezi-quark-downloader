@@ -106,6 +106,16 @@ namespace GeZi.Core.Download
         public Func<CancellationToken, Task<string>> LinkRefresher { get; set; }
 
         /// <summary>
+        /// 【免转存专用】为 true 时，失败文案**不再承诺"可续传"**。
+        ///
+        /// 【为什么】免转存的续传取链依赖分享的 <c>stoken</c>，而本程序**续传时不会重新换 stoken**
+        /// （全代码只在解析分享那一刻取一次）→ stoken 一过期就**永远取不到新链**。
+        /// 此时提示还写着"重试可续传"，用户只会反复重试、反复失败。
+        /// 由 UI 层按任务的 <c>Pending.FromShare</c> 设置（FromShare == true ⟺ 免转存）。
+        /// </summary>
+        public bool ResumeCannotRefresh { get; set; }
+
+        /// <summary>
         /// 单次任务内允许重新取链的次数上限。
         ///
         /// 必须有上限：若服务端一直回 403（例如文件被风控、分享已被关闭），
@@ -202,6 +212,24 @@ namespace GeZi.Core.Download
 
         /// <summary>单个分片最多被抢 3 次（全站都慢时防止无限重连）。</summary>
         private const int PreemptMax = 3;
+        /// <summary>
+        /// 【2026-10-06 新增】收尾阶段（在飞 ≤ <see cref="PreemptEndgameInflight"/>）的单分片抢占上限。
+        ///
+        /// 🚨 为什么收尾期要放宽：用户实测日志 ——
+        ///   「慢连接抢占: 本轮掐掉 1 路（阈值 12.0 KB/s，在飞 2 路，收尾阶段）」
+        ///   隔 10 秒又一条，然后**再也没有了** —— 因为每片 3 次机会在 30 秒内就烧完了，
+        ///   剩下的两片只能干等 → 速度掉到 0 → 45 秒后被看门狗判"网络阻断"中止。
+        ///
+        /// 收尾期的成本极低（只剩几路在跑，多抢几次不会造成重连风暴），
+        /// 而收益是"任务能下完" —— 所以这里给足机会（30 次 × 3 秒冷却 ≈ 90 秒）。
+        /// ⚠️ 非收尾阶段仍然用 3 —— 那里并发高，抢太多次会变成"每轮空掐几路"。
+        /// </summary>
+        private const int PreemptMaxEndgame = 30;
+        /// <summary>
+        /// 【2026-10-06 新增】收尾阶段的抢占冷却（比常规的 10 秒短）。
+        /// 只剩几路时，干等的代价远大于重连，所以冷却也一起缩短。
+        /// </summary>
+        private const long PreemptEndgameCooldownMs = 3_000;
 
         /// <summary>每轮最多抢 2 路，避免同时掐掉一大片连接。</summary>
         private const int PreemptPerTick = 2;
@@ -367,10 +395,16 @@ namespace GeZi.Core.Download
         private static string Fmt(long bytes)
         {
             var ci = CultureInfo.InvariantCulture;
-            if (bytes < 1024) return bytes.ToString(ci) + " B";
-            if (bytes < 1024L * 1024) return (bytes / 1024.0).ToString("F1", ci) + " KB";
-            if (bytes < 1024L * 1024 * 1024) return (bytes / 1024.0 / 1024.0).ToString("F2", ci) + " MB";
-            return (bytes / 1024.0 / 1024.0 / 1024.0).ToString("F2", ci) + " GB";
+            // 🚨 【2026-10-06 修】原来除以 1024³ 却标成 "GB" —— 那是 **GiB**，
+            // 于是同一个文件「夸克分享页写 9.54 GB、本程序写 8.89 GB」，
+            // 用户以为少下了（实测反馈：「明明9gb只下了8.99gb」）。
+            // 改成 **1000 进制**：单位名副其实，且与夸克分享页/资源管理器之外的多数场景一致。
+            // ⚠️ Windows 资源管理器用的是 1024 进制却同样标 GB，所以两者仍会有差异 ——
+            //    但那属于 Windows 自己的历史包袱，我们不做错误标注。
+            if (bytes < 1000) return bytes.ToString(ci) + " B";
+            if (bytes < 1000L * 1000) return (bytes / 1000.0).ToString("F1", ci) + " KB";
+            if (bytes < 1000L * 1000 * 1000) return (bytes / 1000.0 / 1000.0).ToString("F2", ci) + " MB";
+            return (bytes / 1000.0 / 1000.0 / 1000.0).ToString("F2", ci) + " GB";
         }
 
         /// <summary>
@@ -573,7 +607,13 @@ namespace GeZi.Core.Download
                 return new DownloadResult
                 {
                     Ok = false,
-                    Message = msg + "（已保留断点与已下载部分，重新获取直链后可续传）",
+                    // 【2026-10-06】免转存任务不能承诺"可续传" —— 它依赖分享 stoken，
+                    // 而续传不会重新换 stoken（详见 ResumeCannotRefresh 的注释）。
+                    // 说清楚"要重新解析分享"，比让用户反复点重试强。
+                    Message = msg + (ResumeCannotRefresh
+                        ? "（已保留斷點與已下載部分。注意：這是「免轉存下載」，"
+                          + "分享憑證過期後無法續傳——需要重新解析分享後再下載。）"
+                        : "（已保留斷點與已下載部分，重新取得直鏈後可續傳）"),
                 };
             }
 
@@ -983,7 +1023,14 @@ namespace GeZi.Core.Download
             if (total <= 0)
                 return new List<(long, long)>();
 
-            const int MaxSegments = 4096;               // 上限对齐 Python 版 _FAST_MAX_CHUNKS
+            const int MaxSegments = 16384;              // 上限对齐 Python 版 _FAST_MAX_CHUNKS
+            // 🚨 【2026-10-06 4096 → 16384】原来 4096 片、512 并发 = 只有 8× 的储备，
+            // 意味着"剩余片数 < 512"时连接数就开始跟着掉 —— 对 9.5GB 文件那是**最后 1.2GB（12%）**，
+            // 用户实测「越到后面越慢，最后掉到 0」，日志里是"在飞 2 路"。
+            // 提到 16384 后同样文件是 16384 片 × 582KB，掉速窗口缩到最后 300MB（3%），
+            // 尾部绝对长度也短得多（最后 1 片只有 582KB 而不是 2.3MB）。
+            // ⚠️ 别担心小文件被切碎：下面 bySize 分档仍然生效，片数由 max(bySize, eff×8) 决定，
+            //    16384 只是**上限**，只有大文件才够得着。
             // 单分片下限 512KB（原 256KB）：256KB 的小片只在"文件大到必须
             // 用 4096 片"时才需要；对中小文件，256KB 会把片切得过碎
             // （100MB → 400 片），每条连接反复建连，得不偿失。
@@ -1003,17 +1050,24 @@ namespace GeZi.Core.Download
             int eff = threads > 0 ? Math.Min(threads, MaxRealConcurrency) : 1;
             if (eff < 1) eff = 1;
 
-            // 片数 = max(按大小算的基础值, 有效并发 × 8)。
-            // 每线程 8 片是 Python 版验证过的工作窃取深度：足够吸收
-            // "部分连接变慢"的抖动，又不至于碎到把建连成本顶上来。
-            // 分档基础值让极小文件不会被切成"每条连接跑不到一片"的碎渣。
+            // 片数 = max(按大小算的基础值, 有效并发 × 32)。
+            //
+            // 🚨 【2026-10-06：8 → 32】"每线程 N 片"正是**尾部掉速窗口的长度**：
+            // 剩余片数一旦少于并发数，连接数就跟着掉（剩 2 片 = 只有 2 个连接）。
+            // ×8 时窗口 = 4096 片 ≈ 9.5GB 文件的**最后 1.2GB（12%）**，
+            // 用户实测「越到后面越慢，最后掉到 0 KB/s」（日志：在飞 2 路、阈值取到下限 12KB/s）。
+            // ×32 后窗口缩到 16384 片 ≈ 最后 298MB（3%），单片也从 2.3MB 降到 582KB。
+            //
+            // ⚠️ 别怕小文件被切碎：下面 seg 会被夹到 [MinSegBytes=512KB, maxSegBytes]，
+            //    100MB 文件仍只切出 200 片，不会变成"每条连接跑不到一片"的碎渣。
+            // 分档基础值让极小文件不会被切成碎渣。
             long bySize;
             if (total < 5L * 1024 * 1024)             bySize = 1;
             else if (total < 32L * 1024 * 1024)       bySize = 4;
             else if (total < 256L * 1024 * 1024)      bySize = 16;
             else if (total < 2L * 1024 * 1024 * 1024) bySize = 32;
             else                                       bySize = 64;
-            long wantParts = Math.Max(bySize, (long)eff * 8);
+            long wantParts = Math.Max(bySize, (long)eff * 32);
             if (wantParts < 1) wantParts = 1;
             if (wantParts > MaxSegments) wantParts = MaxSegments;
 
@@ -1438,6 +1492,14 @@ namespace GeZi.Core.Download
             // 合并线程已合并的字节数，供 5 秒诊断日志跨线程读取
             long[] mergedBox = new long[] { mergedBytes };
 
+            // 「所有 worker 都已结束，只剩合并线程在收尾」的标志（跨线程用 Volatile 读写）。
+            //
+            // 【为什么需要】收尾阶段 done 不再增长（数据早就下完了），但磁盘 I/O 还在跑。
+            // 若进度上报线程不知道这件事，会：① 把"无数据"误判成网络停滞而主动中止；
+            // ② 界面冻结在「100% + 速度 0」，用户以为卡死（实测反馈「就显示 0 kb 不动」）。
+            // 有了这个标志，reporter 就能在收尾期改为上报「正在合并分片」并跳过停滞判定。
+            bool[] workersDoneBox = new bool[1];
+
             // ==================== 慢连接抢占：采样状态 ====================
             //
             // 按 worker 编号（不是分片编号）索引：看门狗要问的是"第 i 条连接现在跑多快"，
@@ -1617,9 +1679,13 @@ namespace GeZi.Core.Download
                         long remain = (pp.E - pp.S + 1) - w;
                         if (remain < PreemptMinRemain) continue;
                     }
-                    if (partPreempt[idx] >= PreemptMax) continue;       // 单分片最多抢 3 次
+                    // 【2026-10-06】收尾期放宽上限与冷却 —— 只剩几路时多抢几次成本极低，
+                    // 而"抢满就永久放弃"会让尾部那几片干等到被看门狗中止（用户实测）。
+                    int maxPreempt = endgame ? PreemptMaxEndgame : PreemptMax;
+                    long cooldownMs = endgame ? PreemptEndgameCooldownMs : PreemptCooldownMs;
+                    if (partPreempt[idx] >= maxPreempt) continue;
                     if (partLastPreempt[idx] != 0
-                        && nowMs - partLastPreempt[idx] < PreemptCooldownMs) continue;
+                        && nowMs - partLastPreempt[idx] < cooldownMs) continue;
 
                     // 命中：只掐这一片的连接。已写字节保留在 part.W，
                     // 重新入队由 worker 的 catch 负责 —— 这里不做任何破坏性动作。
@@ -1695,12 +1761,40 @@ namespace GeZi.Core.Download
                     // 为什么不用滑动窗口、τ 怎么取值，见 SpeedMeter 的注释。
                     var meter = new SpeedMeter(SpeedTauSec, Interlocked.Read(ref done), DateTime.UtcNow);
 
+                    // 收尾（合并）阶段的独立速度计 —— 量的是"合并吞吐"而不是网速。
+                    // 懒创建：只有真的进入收尾才需要它。
+                    SpeedMeter mergeMeter = null;
+
                     while (!stop.IsCancellationRequested)
                     {
                         await Task.Delay(200, stop.Token).ConfigureAwait(false);
-                        long d = Interlocked.Read(ref done);
                         var now = DateTime.UtcNow;
-                        double speed = meter.Sample(d, now);
+
+                        // ---- 收尾阶段判定：worker 全结束，只剩合并线程在把分片 append 进目标文件 ----
+                        // 这期间 done 恒等于 total（不再增长），但磁盘 I/O 还在跑。
+                        // 必须区别对待：① 不能判网络停滞（否则把正常收尾当故障中止）；
+                        // ② 要上报阶段，否则界面冻结在「100% + 速度 0」，用户以为卡死。
+                        // ⚠️ 只跳过"抢占/停滞"这两类**网络侧**逻辑；
+                        //    诊断快照与每秒 SavePlan（崩溃安全）照常执行。
+                        // ⚠️ **必须同时判 mergeMode**：共写模式（SharedFile）根本没有合并阶段，
+                        //    若只看标志位，收尾那一瞬会错误地显示「正在合并分片」。
+                        bool draining = mergeMode && Volatile.Read(ref workersDoneBox[0]);
+                        long d;
+                        double speed;
+                        if (draining)
+                        {
+                            long mb = Interlocked.Read(ref mergedBox[0]);
+                            if (mergeMeter == null)
+                                mergeMeter = new SpeedMeter(SpeedTauSec, mb, now);
+                            speed = mergeMeter.Sample(mb, now);   // 收尾期展示"合并吞吐"
+                            d = Interlocked.Read(ref done);
+                            lastAdvance = now;                    // 收尾不算停滞
+                        }
+                        else
+                        {
+                            d = Interlocked.Read(ref done);
+                            speed = meter.Sample(d, now);
+                        }
 
                         // 进度上报降频（循环仍 200ms，见 ProgressReportMs 注释）：
                         // 每次 Report 都会往 UI 线程投递回调，WPF 单线程下 512 并发时
@@ -1708,13 +1802,13 @@ namespace GeZi.Core.Download
                         if ((now - lastReport).TotalMilliseconds >= ProgressReportMs)
                         {
                             lastReport = now;
-                            try { Report(progress, d, total, speed); } catch { }
+                            try { Report(progress, d, total, speed, draining ? "正在合併分片" : null); } catch { }
                         }
 
                         // ---- 慢连接抢占：每 5 秒采样一次 ----
                         // 与诊断日志同频但**独立计时**：抢占是功能性逻辑，
                         // 不该因为诊断日志将来被调整/注释掉就跟着一起停。
-                        if ((now - lastPreempt).TotalSeconds >= PreemptTickSec)
+                        if (!draining && (now - lastPreempt).TotalSeconds >= PreemptTickSec)
                         {
                             lastPreempt = now;
                             try { PreemptSlowChunks(speed); }
@@ -1794,9 +1888,13 @@ namespace GeZi.Core.Download
                                  && Interlocked.CompareExchange(ref stalledFlag, 1, 0) == 0)
                         {
                             Log?.Invoke(string.Format(
-                                "下载停滞: 已 {0} 秒没有任何数据写入，判定为连接被网络层阻断，主动中止本任务。" +
-                                "常见原因是并发连接数超过了路由器/运营商的会话上限。" +
-                                "建议把线程数降到 64~128 后重试；已下载的部分已写进 .qmeta，重试会自动续传。",
+                                "下载停滞: 已 {0} 秒没有任何数据写入，主动中止本任务。" +
+                                "若是【收尾阶段】（剩余分片很少，日志里有「收尾阶段」字样）出现：" +
+                                "多半是这几个分片被夸克 CDN 调度到了慢节点，" +
+                                "【与你的网络无关】—— 直接重试即可，重试会重新分配节点。" +
+                                "若是【下载中途】出现：才可能是并发连接数超过了路由器/运营商的会话上限，" +
+                                "可把线程数降到 64~128 再试。" +
+                                "已下载的部分已写进 .qmeta，重试会自动续传。",
                                 (int)(now - lastAdvance).TotalSeconds));
                             AddError("stalled: 网络层疑似阻断，长时间无数据");
                             Interlocked.Exchange(ref cancelled, 1);
@@ -2165,6 +2263,27 @@ namespace GeZi.Core.Download
                                             await Task.Delay(TimeSpan.FromMilliseconds(delayMs), partToken).ConfigureAwait(false);
                                         }
                                         catch (OperationCanceledException)
+                                            when (partToken.IsCancellationRequested && !cancelToken.IsCancellationRequested)
+                                        {
+                                            // 【2026-10-06 修】退避等待期间被「慢连接抢占」——
+                                            // 必须与下面 I/O 路径那个 catch 同样处理：这一片回队列、
+                                            // 由别的 worker 接着下，**不计失败、不退避**（照云析的设计保证）。
+                                            //
+                                            // 🚨 原来这里【没有这个守卫】，抢占会被当成"任务中断"（cancelled=1）
+                                            //    → **整个任务被判失败**。而收尾阶段恰恰是最容易撞上的：
+                                            //      ① endgame 时抢占"放宽年龄与剩余门槛"，触发更频繁；
+                                            //      ② 尾部在飞的就是反复重试的慢片；
+                                            //      ③ 重试越多 → 越可能正处于退避等待中。
+                                            //    三者叠加 → 用户反馈的「下载到最后就停」（停在 99%）。
+                                            queue.Enqueue(idx);
+                                            Interlocked.Increment(ref preemptedCount);
+                                            // 这片是"被抢占"不是"失败"：lastErr 是整片循环共享的局部变量，
+                                            // 不清掉的话循环外那句 `if (lastErr != null) AddError(...)`
+                                            // 会把已经过期的错误记成终态。
+                                            lastErr = null;
+                                            break;   // 跳出 attempt 循环，回去领下一片
+                                        }
+                                        catch (OperationCanceledException)
                                         {
                                             Interlocked.Exchange(ref cancelled, 1);
                                             // 只有外部令牌被取消才算"用户取消"；
@@ -2357,8 +2476,16 @@ namespace GeZi.Core.Download
                 }
                 finally
                 {
-                    stop.Cancel();
-                    try { await reporter.ConfigureAwait(false); } catch { }
+                    // 【顺序很关键】先把"worker 已全部结束"告诉 reporter，
+                    // 再排空合并线程 —— 这期间 reporter 仍在跑，UI 能看到「正在合并分片」。
+                    //
+                    // 原来这里是"先 stop.Cancel() 停掉 reporter，再 await mergeTask"，
+                    // 于是整个收尾期（100GB 文件可能好几分钟）界面**完全冻结**在
+                    // 「进度 100% + 速度 0 + 状态下载中」→ 用户判定为卡死（实测反馈）。
+                    //
+                    // ⚠️ 值取 `mergeMode` 而不是恒 `true`：共写模式没有合并阶段，
+                    //    标志位若为 true，reporter 会在收尾那一瞬误报「正在合并分片」。
+                    Volatile.Write(ref workersDoneBox[0], mergeMode);
 
                     // 合并线程收尾：先让它把"已经就绪"的分片排空，再退出。
                     // 直接取消而不排空，会留下一批已经下好、却白占空间的分片文件。
@@ -2367,6 +2494,11 @@ namespace GeZi.Core.Download
                     {
                         try { await mergeTask.ConfigureAwait(false); } catch { }
                     }
+
+                    // 合并排空完了，才停进度上报线程
+                    stop.Cancel();
+                    try { await reporter.ConfigureAwait(false); } catch { }
+
                     SavePlan(metaPath, plan);
                 }
 
@@ -2388,6 +2520,30 @@ namespace GeZi.Core.Download
                         {
                             // 不是用户点的取消 → 保留断点，不能删。
                             // （range-not-supported 会走下面的分支单独处理，不到这里。）
+                            //
+                            // 【2026-10-06 加固】和下面 errors 分支一样，**报失败前先验一次数据**：
+                            // 数据其实已经全下全了、却报"失败"，用户会以为文件坏了不敢用。
+                            // （10-04 那次只补了 errors 分支，漏了 cancelled 这条。）
+                            bool cancelledButComplete;
+                            if (mergeMode)
+                            {
+                                // 独立分片模式：目标文件是按序追加的，长度到位 ⇒ 每片都已合并进去。
+                                // 走到这里合并线程已经被排空（上面的 finally），所以这个判据有效。
+                                long finalLen = -1;
+                                try { finalLen = new FileInfo(dest).Length; } catch { }
+                                cancelledButComplete = finalLen == total;
+                            }
+                            else
+                            {
+                                // 共写模式：文件一开始就 SetLength(total)，看长度没意义，看实际写入字节数。
+                                cancelledButComplete = Interlocked.Read(ref done) >= total;
+                            }
+                            if (cancelledButComplete)
+                            {
+                                Log?.Invoke("注意: 下载中途被判中断，但数据已全部到位（"
+                                    + Fmt(total) + "），按成功处理。");
+                                return (true, "");
+                            }
                             return (false, "下载中断（已保留断点与已下载部分，重试可续传）");
                         }
                         ClearPartial(dest);
@@ -2542,11 +2698,18 @@ namespace GeZi.Core.Download
             return true;
         }
 
-        private static void Report(IProgress<DownloadProgress> progress, long done, long? total, double speed)
+        private static void Report(IProgress<DownloadProgress> progress, long done, long? total, double speed,
+            string phase = null)
         {
             if (progress == null)
                 return;
-            progress.Report(new DownloadProgress { Done = done, Total = total ?? 0, Speed = speed });
+            progress.Report(new DownloadProgress
+            {
+                Done = done,
+                Total = total ?? 0,
+                Speed = speed,
+                Phase = phase,
+            });
         }
 
         // ---------------- sidecar 续传元数据（简单文本格式，无 JSON 依赖） ----------------

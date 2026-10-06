@@ -32,5 +32,13 @@ namespace GeZi
         {
             return string.Format(CultureInfo.CurrentCulture, Get(key), args ?? new object[0]);
         }
+
+        public static string GetPhase(string phase)
+        {
+            if (string.IsNullOrEmpty(phase)) return "";
+            if (phase == "正在合并分片" || phase == "正在合併分片")
+                return Get("String.Code.TaskItem.MergingParts");
+            return phase;
+        }
     }
 }
