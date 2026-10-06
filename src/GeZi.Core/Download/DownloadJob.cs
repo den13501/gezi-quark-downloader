@@ -51,6 +51,14 @@ namespace GeZi.Core.Download
         public Func<CancellationToken, Task<string>> LinkRefresher { get; set; }
 
         /// <summary>
+        /// 【免转存专用】为 true 时，失败文案**不再承诺"可续传"**。
+        /// 免转存的续传取链依赖分享 stoken，而续传**不会重新换 stoken**（只在解析分享时取一次），
+        /// stoken 过期就永远取不到新链 → 提示必须改成"需重新解析分享"。
+        /// 由 UI 层按 <c>Pending.FromShare</c> 设置（FromShare == true ⟺ 免转存）。
+        /// </summary>
+        public bool ResumeCannotRefresh { get; set; }
+
+        /// <summary>
         /// 续传上下文（可选）。由 UI 层在创建任务时填好，用于把该任务写进
         /// 「未完成任务」持久化记录，使程序重启后能**不依赖界面上下文**地重取直链续传。
         ///

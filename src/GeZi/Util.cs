@@ -24,12 +24,15 @@ namespace GeZi
     {
         public static string FormatSize(long n)
         {
+            // 🚨 【2026-10-06 修】原来除以 1024 却标 "KB/MB/GB"（那是 KiB/MiB/GiB）。
+            // 后果：同一个文件「夸克分享页写 9.54 GB、本程序写 8.89 GB」，用户以为少下了。
+            // 改成 **1000 进制** —— 单位名副其实，也顺带让速度显示符合网络速率的惯例（1 MB/s = 10^6 B/s）。
             double v = n;
             string[] units = { "B", "KB", "MB", "GB", "TB" };
             int i = 0;
-            while (v >= 1024 && i < units.Length - 1)
+            while (v >= 1000 && i < units.Length - 1)
             {
-                v /= 1024.0;
+                v /= 1000.0;
                 i++;
             }
             return i == 0 ? n + " B" : v.ToString("F2") + " " + units[i];

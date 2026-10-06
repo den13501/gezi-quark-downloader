@@ -206,7 +206,25 @@ namespace GeZi
             }
         }
 
-        public string PercentText => _percent.ToString("F1") + "%";
+        /// <summary>
+        /// 百分比文本。
+        ///
+        /// 🚨 【2026-10-06 修】**必须截断，不能四舍五入** ——
+        /// 原来直接 `ToString("F1")`，于是 99.95% 会被舍入成「**100.0%**」：
+        /// 用户看到 100% 却还在跑、文件也没下完（实测反馈：「明明9gb只下了8.99gb却显示100%」）。
+        /// 改成先向下取整到 0.1 再格式化 ⇒ 只有**真正** 100% 才会显示 100.0%。
+        /// </summary>
+        public string PercentText
+        {
+            get
+            {
+                if (_percent >= 100.0)
+                    return "100.0%";
+                double truncated = Math.Floor(_percent * 10.0) / 10.0;
+                if (truncated < 0) truncated = 0;
+                return truncated.ToString("F1") + "%";
+            }
+        }
 
         /// <summary>
         /// 速度文本。只有在"下载中"才展示速度，其余状态返回空串——

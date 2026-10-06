@@ -94,12 +94,14 @@ namespace GeZi
 
         private static string FormatSize(long n)
         {
+            // 🚨 【2026-10-06 修】同 Util.FormatSize：原来 1024 进制却标 "KB/MB/GB"，
+            // 与夸克分享页（1000 进制）对不上，用户以为文件变小了。统一改 1000 进制。
             double v = n;
             string[] units = { "B", "KB", "MB", "GB", "TB" };
             int i = 0;
-            while (v >= 1024 && i < units.Length - 1)
+            while (v >= 1000 && i < units.Length - 1)
             {
-                v /= 1024.0;
+                v /= 1000.0;
                 i++;
             }
             return i == 0 ? n + " B" : v.ToString("F2") + " " + units[i];

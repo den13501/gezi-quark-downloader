@@ -36,6 +36,7 @@ using GeZi.Core.Api;
 using GeZi.Core.Download;
 using GeZi.Core.Models;
 using GeZi.Core.Support;
+using System.Text.RegularExpressions;
 
 // 说明：MainWindow 里既有 XAML 生成的字段，也有代码动态构建的窗口（如续传询问、
 // 诊断面板）。动态构建需要 System.Windows.Controls 下的 Grid/Button/ListBox 等，
@@ -843,6 +844,58 @@ namespace GeZi
             }
         }
 
+        /// <summary>
+        /// 【粘贴时自动精简】用户常把夸克分享的**整段文案**粘进来，形如：
+        /// 「我用夸克网盘给你分享了「xxx.pdf」，点击链接或复制整段内容，打开「夸克APP」即可获取。
+        ///   链接：https://pan.quark.cn/s/20ef19d26112  提取码：abcd」
+        ///
+        /// 🚨 为什么必须拦一下：`LinkBox` 是**单行、42px、横向滚动条 Disabled** 的输入框，
+        /// 整段文案（近百字符）塞进去后**只能看到开头那截**，链接被挤出可视区域 ——
+        /// 用户会以为"链接不见了"（真实反馈）。
+        /// 其实解析本身没问题（`ShareUrlParser` 能正确提取），是**看不见**造成的误会。
+        ///
+        /// 所以粘贴时直接把内容替换成「裸链接」，并把文案里带的提取码顺手填进 `PassBox`。
+        /// 找不到分享链接时**原样粘贴**，绝不吞掉用户的内容。
+        /// </summary>
+        private void OnLinkBoxPasting(object sender, DataObjectPastingEventArgs e)
+        {
+            try
+            {
+                if (!e.SourceDataObject.GetDataPresent(DataFormats.UnicodeText))
+                    return;
+                string text = e.SourceDataObject.GetData(DataFormats.UnicodeText) as string;
+                if (string.IsNullOrEmpty(text))
+                    return;
+
+                // 先尝试从文案里**原样抠出 URL**（保留 fid / 查询串等），比按 PwdId 重建更保真。
+                var m = Regex.Match(text, @"https?://[^\s""'<>）】\]]+");
+                string url = null;
+                if (m.Success && m.Value.IndexOf("/s/", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    url = m.Value;
+                }
+                else
+                {
+                    // 退路：按解析出的 PwdId 重建（应对"只有纯文本、URL 被截断"等情况）
+                    var info = ShareUrlParser.Parse(text);
+                    if (!string.IsNullOrEmpty(info.PwdId))
+                        url = "https://pan.quark.cn/s/" + info.PwdId;
+                }
+
+                if (string.IsNullOrEmpty(url))
+                    return;   // 不是分享链接 → 原样粘贴，别动用户的东西
+
+                // 用替换后的数据对象覆盖本次粘贴内容
+                e.DataObject = new DataObject(DataFormats.UnicodeText, url);
+
+                // 文案里带提取码时顺手填上（用户看得见"用了什么码"，解析失败时好排查）
+                var info2 = ShareUrlParser.Parse(text);
+                if (!string.IsNullOrEmpty(info2.Passcode) && string.IsNullOrEmpty(PassBox.Text.Trim()))
+                    PassBox.Text = info2.Passcode;
+            }
+            catch { /* 粘贴绝不因为这里出错而失败 */ }
+        }
+
         private async void OnParseClick(object sender, RoutedEventArgs e)
         {
             string url = LinkBox.Text.Trim();
@@ -1492,21 +1545,24 @@ namespace GeZi
             var tabPlain = DialogChrome.FileTab("纯直链", LinkExporter.Format.Labeled);
             var tabCurl = DialogChrome.FileTab("curl 命令", LinkExporter.Format.Curl);
             var tabAria = DialogChrome.FileTab("aria2c 命令", LinkExporter.Format.Aria2);
+            var tabMotrix = DialogChrome.FileTab("Motrix 界面", LinkExporter.Format.MotrixGui);
             // 【用户要求】「后两者自带 UA 与 Cookie，把它的颜色改红」。
-            // curl / aria2c 两种格式会把**登录凭证（UA + Cookie）**一起写进导出文件，
+            // curl / aria2c / Motrix 界面 三种格式会把**登录凭证（UA + Cookie）**一起写进导出文件，
             // 属于敏感内容 → 用警示红标出来，和下载页那行提示保持同一套语义色。
             // ⚠️ 这里用的是**本地值**：WPF 里本地值优先级高于样式触发器，
             //    所以 FileTabItem 那个「选中变主色」的触发器不会把红色覆盖掉 ——
-            //    正是我们要的（这两个页签任何状态下都是红的）。
+            //    正是我们要的（这几个页签任何状态下都是红的）。
             var warnBrush = TryFindResource("DangerBrush") as Brush;
             if (warnBrush != null)
             {
                 tabCurl.Foreground = warnBrush;
                 tabAria.Foreground = warnBrush;
+                tabMotrix.Foreground = warnBrush;
             }
             tabBar.Children.Add(tabPlain);
             tabBar.Children.Add(tabCurl);
             tabBar.Children.Add(tabAria);
+            tabBar.Children.Add(tabMotrix);
 
             // 互斥 + 默认选中「纯直链」（原首位按钮的位置）
             LinkExporter.Format chosen = LinkExporter.Format.Labeled;
@@ -1515,6 +1571,7 @@ namespace GeZi
                 tabPlain.IsChecked = chosen == LinkExporter.Format.Labeled;
                 tabCurl.IsChecked = chosen == LinkExporter.Format.Curl;
                 tabAria.IsChecked = chosen == LinkExporter.Format.Aria2;
+                tabMotrix.IsChecked = chosen == LinkExporter.Format.MotrixGui;
             };
 
             // ===== 切换种类时的加载指示 =====
@@ -1544,6 +1601,7 @@ namespace GeZi
             tabPlain.Click += (s, e) => { _ = switchTo(LinkExporter.Format.Labeled, "纯直链"); };
             tabCurl.Click += (s, e) => { _ = switchTo(LinkExporter.Format.Curl, "curl 命令"); };
             tabAria.Click += (s, e) => { _ = switchTo(LinkExporter.Format.Aria2, "aria2c 命令"); };
+            tabMotrix.Click += (s, e) => { _ = switchTo(LinkExporter.Format.MotrixGui, "Motrix 界面"); };
             syncTabs();
 
             var list = DialogChrome.StyledList();
@@ -1630,7 +1688,11 @@ namespace GeZi
             }
 
             string text = LinkExporter.Build(list, QuarkConstants.DlUa,
-                _client.CookieStr, QuarkConstants.Referer, format);
+                _client.CookieStr, QuarkConstants.Referer, format,
+                // 【仅 Motrix 格式用】必须是绝对路径：Motrix 是独立进程，
+                // 它把 "." 解析成【它自己的工作目录】（实测落到了 D:\motrix\ 安装目录），
+                // 不是用户执行命令时所在的目录。curl/aria2c 没这问题（用户自己在 shell 里跑）。
+                absoluteSaveDir: _settings.OutDir);
             if (string.IsNullOrEmpty(text))
             {
                 Log("没有可导出的直链");
@@ -1671,6 +1733,7 @@ namespace GeZi
             {
                 case LinkExporter.Format.Aria2: return "aria2c 命令";
                 case LinkExporter.Format.Curl: return "curl 命令";
+                case LinkExporter.Format.MotrixGui: return "Motrix 界面";
                 case LinkExporter.Format.Labeled: return "纯直链";
                 default: return "纯直链";
             }
@@ -1761,6 +1824,8 @@ namespace GeZi
                     WriteMode = _settings.WriteMode,
                     PartsRoot = string.IsNullOrWhiteSpace(_settings.PartsRoot) ? null : _settings.PartsRoot,
                     LinkRefresher = ct => RefreshLinkAsync(item, ct),
+                    // 免转存（从分享直接取链）→ 续传取不到新链，失败文案别承诺"可续传"
+                    ResumeCannotRefresh = item.FromShare,
                     Pending = new PendingInfo
                     {
                         PwdId = _pwdId, Stoken = _stoken, Passcode = PassBox.Text,
@@ -1871,6 +1936,8 @@ namespace GeZi
                         // 直链带时效签名，长任务下到一半会过期。
                         // 给下载器一个"重新取链"的口子，它就能自动换链续传，而不是整个任务失败。
                         LinkRefresher = ct => RefreshLinkAsync(item, ct),
+                        // 免转存（从分享直接取链）→ 续传取不到新链，失败文案别承诺"可续传"
+                        ResumeCannotRefresh = item.FromShare,
                         // 续传上下文：写进「未完成任务」记录后，程序重启也能重取链接着下。
                         Pending = new PendingInfo
                         {
@@ -4034,6 +4101,8 @@ namespace GeZi
                         };
                         var captured = job;
                         job.LinkRefresher = ct => RefreshLinkAsyncForPending(captured, ct);
+                        // 免转存任务续传取不到新链（stoken 过期）→ 失败文案要说"需重新解析分享"
+                        job.ResumeCannotRefresh = p.FromShare;
                         jobs.Add(job);
                     }
                     catch (Exception ex)
