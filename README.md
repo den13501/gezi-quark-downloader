@@ -8,10 +8,10 @@
   <img src="src/GeZi/Resources/app-logo.png" width="120" alt="鸽子下载">
 </p>
 <p align="center">
-  <img src="https://img.shields.io/github/repo-size/huaotem-bot/gezi-quark-downloader?style=social" alt="Repo Size">
-  <img src="https://visitor-badge.laobi.icu/badge?page_id=huaotem-bot.gezi-quark-downloader&radius=12" alt="Visitors">
-  <img src="https://img.shields.io/github/license/huaotem-bot/gezi-quark-downloader?style=social" alt="License">
-  <img src="https://img.shields.io/github/stars/huaotem-bot/gezi-quark-downloader?style=social" alt="Stars">
+  <img src="https://img.shields.io/github/repo-size/den13501/gezi-quark-downloader?style=social" alt="Repo Size">
+  <img src="https://visitor-badge.laobi.icu/badge?page_id=den13501.gezi-quark-downloader&radius=12" alt="Visitors">
+  <img src="https://img.shields.io/github/license/den13501/gezi-quark-downloader?style=social" alt="License">
+  <img src="https://img.shields.io/github/stars/den13501/gezi-quark-downloader?style=social" alt="Stars">
 </p>
 
 ---
@@ -62,7 +62,7 @@
 
 ### 方式一：下载发行版（推荐）
 
-1. 从 [Releases](https://github.com/huaotem-bot/gezi-quark-downloader/releases) 下载 `GeZi-v2.2.0-win64.zip` 并解压到任意目录
+1. 从 [Releases](https://github.com/den13501/gezi-quark-downloader/releases) 下载 `GeZi-v2.2.0-zh-Hant.1-win64.zip` 并解压到任意目录
 2. 双击 `GeZi.exe` 即可运行
 3. 若系统缺少 .NET Framework 4.8，Windows 会弹窗提示，按引导安装即可
 

@@ -5,7 +5,7 @@
     <sys:String x:Key="String.AboutWindow.BiliBtn.AutomationName.5f879d0f">開啟作者B站首頁</sys:String>
     <sys:String x:Key="String.AboutWindow.BiliText.Text.2b961600">作者 B 站：b23.tv/gIoEfQM（按一下跳轉）</sys:String>
     <sys:String x:Key="String.AboutWindow.RepoBtn.AutomationName">開啟專案原始碼網址</sys:String>
-    <sys:String x:Key="String.AboutWindow.RepoText.Text">原始碼網址：github.com/huaotem-bot/gezi-quark-downloader</sys:String>
+    <sys:String x:Key="String.AboutWindow.RepoText.Text">原始碼網址：github.com/den13501/gezi-quark-downloader</sys:String>
     <sys:String x:Key="String.AboutWindow.OpenSourcePrefix">本專案</sys:String>
     <sys:String x:Key="String.AboutWindow.OpenSourceEmphasis">完全開源</sys:String>
     <sys:String x:Key="String.AboutWindow.OpenSourceSuffix">，採用 GPL-3.0 授權，全部原始碼公開可供稽核。軟體無廣告、無遙測，也不收集任何使用者資料；登入憑證只會以 Windows DPAPI 加密儲存在本機，不會外傳。</sys:String>
